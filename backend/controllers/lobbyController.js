@@ -1,0 +1,438 @@
+import { randomInt } from 'crypto';
+import prisma from '../config/dbConfig.js';
+
+// Only ever expose these user fields to other lobby members — never password_hash.
+const publicUserSelect = {
+    id: true,
+    username: true,
+    profile_image_url: true,
+};
+
+// Ambiguous characters (I, O, 0, 1) are left out so codes are easy to read aloud.
+const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const INVITE_CODE_LENGTH = 6;
+
+const generateInviteCode = () => {
+    let code = '';
+    for (let i = 0; i < INVITE_CODE_LENGTH; i++) {
+        code += INVITE_ALPHABET[randomInt(INVITE_ALPHABET.length)];
+    }
+    return code;
+};
+
+// ==========================================
+// LOBBIES
+// ==========================================
+
+/**
+ * GET /api/lobbies
+ * Lobbies the authenticated user belongs to. Scoped to the user on purpose —
+ * listing every lobby on the server would leak other people's plans.
+ */
+export const getMyLobbies = async (req, res) => {
+    try {
+        const memberships = await prisma.lobbyMember.findMany({
+            where: { user_id: req.user.id },
+            orderBy: { joined_at: 'desc' },
+            include: {
+                lobby: {
+                    include: {
+                        creator: { select: publicUserSelect },
+                        chosen_restaurant: true,
+                        _count: { select: { members: true } },
+                    }
+                }
+            }
+        });
+
+        res.status(200).json(memberships.map((m) => m.lobby));
+    } catch (error) {
+        console.error('Error fetching lobbies:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+/**
+ * POST /api/lobbies
+ * Creates a lobby and adds the creator as its first member.
+ */
+export const createLobby = async (req, res) => {
+    const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+
+    if (!name) {
+        return res.status(400).json({ error: 'Lobby name is required.' });
+    }
+    if (name.length > 100) {
+        return res.status(400).json({ error: 'Lobby name must be 100 characters or fewer.' });
+    }
+
+    // Invite codes are random, so a collision is possible. Retry a few times
+    // before giving up rather than handing back a 500 on a 1-in-a-million clash.
+    for (let attempt = 0; attempt < 5; attempt++) {
+        try {
+            const lobby = await prisma.$transaction(async (tx) => {
+                const created = await tx.lobby.create({
+                    data: {
+                        name,
+                        created_by: req.user.id,
+                        invite_code: generateInviteCode(),
+                        status: 'active',
+                    }
+                });
+
+                await tx.lobbyMember.create({
+                    data: { lobby_id: created.id, user_id: req.user.id }
+                });
+
+                return created;
+            });
+
+            return res.status(201).json(lobby);
+        } catch (error) {
+            // P2002 = unique constraint violation; only retry when it was the invite code.
+            if (error.code === 'P2002' && error.meta?.target?.includes('invite_code')) {
+                continue;
+            }
+            console.error('Error creating lobby:', error);
+            return res.status(500).json({ error: 'Internal server error.' });
+        }
+    }
+
+    res.status(500).json({ error: 'Could not generate a unique invite code. Please try again.' });
+};
+
+/**
+ * POST /api/lobbies/join
+ * Body: { invite_code }
+ * Joins the authenticated user to a lobby by its invite code.
+ */
+export const joinLobbyByCode = async (req, res) => {
+    const rawCode = typeof req.body.invite_code === 'string' ? req.body.invite_code : '';
+    const inviteCode = rawCode.trim().toUpperCase();
+
+    if (!inviteCode) {
+        return res.status(400).json({ error: 'An invite code is required.' });
+    }
+
+    try {
+        const lobby = await prisma.lobby.findUnique({ where: { invite_code: inviteCode } });
+
+        if (!lobby) {
+            return res.status(404).json({ error: 'No lobby found with that invite code.' });
+        }
+        if (lobby.status === 'closed') {
+            return res.status(409).json({ error: 'That lobby is already closed.' });
+        }
+
+        // Idempotent: re-joining a lobby you're already in just returns it.
+        await prisma.lobbyMember.upsert({
+            where: {
+                lobby_id_user_id: { lobby_id: lobby.id, user_id: req.user.id }
+            },
+            update: {},
+            create: { lobby_id: lobby.id, user_id: req.user.id },
+        });
+
+        res.status(200).json(lobby);
+    } catch (error) {
+        console.error('Error joining lobby:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+/**
+ * GET /api/lobbies/:id
+ * Members only. Restaurant options, votes and messages have their own endpoints.
+ */
+export const getLobby = async (req, res) => {
+    try {
+        const lobby = await prisma.lobby.findUnique({
+            where: { id: req.lobbyId },
+            include: {
+                creator: { select: publicUserSelect },
+                chosen_restaurant: true,
+                members: {
+                    orderBy: { joined_at: 'asc' },
+                    include: { user: { select: publicUserSelect } }
+                },
+            }
+        });
+
+        res.status(200).json(lobby);
+    } catch (error) {
+        console.error('Error fetching lobby:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+/**
+ * PATCH /api/lobbies/:id
+ * Creator only. Fields are whitelisted so callers can't set arbitrary columns.
+ */
+export const updateLobby = async (req, res) => {
+    const { name, status } = req.body;
+    const allowedStatuses = ['active', 'voting', 'eating', 'closed'];
+    const data = {};
+
+    if (name !== undefined) {
+        const trimmed = typeof name === 'string' ? name.trim() : '';
+        if (!trimmed) {
+            return res.status(400).json({ error: 'Lobby name cannot be empty.' });
+        }
+        if (trimmed.length > 100) {
+            return res.status(400).json({ error: 'Lobby name must be 100 characters or fewer.' });
+        }
+        data.name = trimmed;
+    }
+
+    if (status !== undefined) {
+        if (!allowedStatuses.includes(status)) {
+            return res.status(400).json({ error: `Status must be one of: ${allowedStatuses.join(', ')}.` });
+        }
+        data.status = status;
+        data.closed_at = status === 'closed' ? new Date() : null;
+    }
+
+    if (Object.keys(data).length === 0) {
+        return res.status(400).json({ error: 'Nothing to update.' });
+    }
+
+    try {
+        const updated = await prisma.lobby.update({ where: { id: req.lobbyId }, data });
+        res.status(200).json(updated);
+    } catch (error) {
+        console.error('Error updating lobby:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+/**
+ * DELETE /api/lobbies/:id
+ * Creator only. Members, options, votes and messages cascade via the schema.
+ */
+export const deleteLobby = async (req, res) => {
+    try {
+        await prisma.lobby.delete({ where: { id: req.lobbyId } });
+        res.status(204).send();
+    } catch (error) {
+        console.error('Error deleting lobby:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+// ==========================================
+// LOBBY MEMBERS
+// ==========================================
+
+/**
+ * GET /api/lobbies/:id/members
+ */
+export const getLobbyMembers = async (req, res) => {
+    try {
+        const members = await prisma.lobbyMember.findMany({
+            where: { lobby_id: req.lobbyId },
+            orderBy: { joined_at: 'asc' },
+            include: { user: { select: publicUserSelect } }
+        });
+
+        res.status(200).json(members);
+    } catch (error) {
+        console.error('Error fetching lobby members:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+/**
+ * DELETE /api/lobbies/:id/members/:userId
+ * A member can remove themselves; the creator can remove anyone else.
+ * The creator cannot leave their own lobby — they delete it instead.
+ */
+export const removeLobbyMember = async (req, res) => {
+    const targetUserId = parseInt(req.params.userId, 10);
+
+    if (Number.isNaN(targetUserId)) {
+        return res.status(400).json({ error: 'Invalid user id.' });
+    }
+
+    const isSelf = targetUserId === req.user.id;
+    const isCreator = req.lobby.created_by === req.user.id;
+
+    if (!isSelf && !isCreator) {
+        return res.status(403).json({ error: 'You can only remove yourself from this lobby.' });
+    }
+    if (targetUserId === req.lobby.created_by) {
+        return res.status(400).json({
+            error: 'The lobby creator cannot leave. Delete the lobby instead.'
+        });
+    }
+
+    try {
+        await prisma.lobbyMember.delete({
+            where: {
+                lobby_id_user_id: { lobby_id: req.lobbyId, user_id: targetUserId }
+            }
+        });
+        res.status(204).send();
+    } catch (error) {
+        // P2025 = record to delete does not exist
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'That user is not a member of this lobby.' });
+        }
+        console.error('Error removing lobby member:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+// ==========================================
+// LOBBY RESTAURANT OPTIONS
+// ==========================================
+
+export const getLobbyRestaurants = async (req, res) => {
+    try {
+        const options = await prisma.lobbyRestaurantOption.findMany({
+            where: { lobby_id: req.lobbyId },
+            include: {
+                restaurant: true,
+                adder: { select: publicUserSelect }
+            }
+        });
+
+        res.status(200).json(options);
+    } catch (error) {
+        console.error('Error fetching lobby restaurants:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+export const addLobbyRestaurant = async (req, res) => {
+    const restaurantId = parseInt(req.body.restaurantId, 10);
+
+    if (Number.isNaN(restaurantId)) {
+        return res.status(400).json({ error: 'A valid restaurantId is required.' });
+    }
+
+    try {
+        const option = await prisma.lobbyRestaurantOption.create({
+            data: {
+                lobby_id: req.lobbyId,
+                restaurant_id: restaurantId,
+                added_by: req.user.id,
+            }
+        });
+
+        res.status(201).json(option);
+    } catch (error) {
+        if (error.code === 'P2002') {
+            return res.status(409).json({ error: 'That restaurant is already in this lobby.' });
+        }
+        // P2003 = foreign key constraint failed (restaurant isn't cached yet)
+        if (error.code === 'P2003') {
+            return res.status(404).json({ error: 'That restaurant is not in the database yet.' });
+        }
+        console.error('Error adding lobby restaurant:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+// ==========================================
+// VOTES
+// ==========================================
+
+export const getLobbyVotes = async (req, res) => {
+    try {
+        const votes = await prisma.vote.findMany({
+            where: { lobby_id: req.lobbyId },
+            include: {
+                user: { select: publicUserSelect },
+                restaurant: true
+            }
+        });
+
+        res.status(200).json(votes);
+    } catch (error) {
+        console.error('Error fetching lobby votes:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+export const castVote = async (req, res) => {
+    const restaurantId = parseInt(req.body.restaurantId, 10);
+
+    if (Number.isNaN(restaurantId)) {
+        return res.status(400).json({ error: 'A valid restaurantId is required.' });
+    }
+
+    try {
+        // Only options that were actually shortlisted in this lobby are votable.
+        const option = await prisma.lobbyRestaurantOption.findUnique({
+            where: {
+                lobby_id_restaurant_id: { lobby_id: req.lobbyId, restaurant_id: restaurantId }
+            }
+        });
+
+        if (!option) {
+            return res.status(400).json({ error: 'That restaurant is not an option in this lobby.' });
+        }
+
+        // One vote per person per lobby: re-voting replaces the previous choice.
+        const vote = await prisma.vote.upsert({
+            where: {
+                lobby_id_user_id: { lobby_id: req.lobbyId, user_id: req.user.id }
+            },
+            update: { restaurant_id: restaurantId },
+            create: {
+                lobby_id: req.lobbyId,
+                user_id: req.user.id,
+                restaurant_id: restaurantId,
+            }
+        });
+
+        res.status(201).json(vote);
+    } catch (error) {
+        console.error('Error casting vote:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+// ==========================================
+// MESSAGES (lobby chat)
+// ==========================================
+
+export const getLobbyMessages = async (req, res) => {
+    try {
+        const messages = await prisma.message.findMany({
+            where: { lobby_id: req.lobbyId },
+            orderBy: { sent_at: 'asc' },
+            include: { user: { select: publicUserSelect } }
+        });
+
+        res.status(200).json(messages);
+    } catch (error) {
+        console.error('Error fetching lobby messages:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+export const sendLobbyMessage = async (req, res) => {
+    const { content, imageUrl } = req.body;
+
+    if (!content && !imageUrl) {
+        return res.status(400).json({ error: 'A message needs content or an image.' });
+    }
+
+    try {
+        const message = await prisma.message.create({
+            data: {
+                lobby_id: req.lobbyId,
+                user_id: req.user.id,
+                content: content ?? null,
+                image_url: imageUrl ?? null,
+            }
+        });
+
+        res.status(201).json(message);
+    } catch (error) {
+        console.error('Error sending lobby message:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};

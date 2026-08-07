@@ -25,9 +25,19 @@
 
             <div>
                 <h4>Create a Lobby</h4>
-                <!-- This will be wired up later when lobbyRoutes are active -->
-                <button disabled style="margin-top: 10px; padding: 10px;">New Lobby (Coming Soon)</button> 
+                <form id="create-lobby-form">
+                    <input type="text" id="create-lobby-name" placeholder="Lobby name" maxlength="100" required>
+                    <button type="submit">Create</button>
+                </form>
             </div>
+            <div style="margin-top: 20px;">
+                <h4>Join a Lobby</h4>
+                <form id="join-lobby-form">
+                    <input type="text" id="join-lobby-code" placeholder="Invite code" maxlength="10" required>
+                    <button type="submit">Join</button>
+                </form>
+            </div>
+            <p id="lobby-error" style="color: red;"></p>
         </aside>
 
         <!-- Main Content Area -->

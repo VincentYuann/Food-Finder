@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FoodFinder - Lobby</title>
+</head>
+<body>
+    <div style="max-width: 800px; margin: 0 auto; padding: 20px;">
+
+        <a href="/index.html">&larr; Back to Dashboard</a>
+
+        <!-- Shown while loading, or if the lobby is missing / not ours -->
+        <p id="lobby-status-message">Loading lobby&hellip;</p>
+
+        <div id="lobby-content" style="display: none;">
+
+            <header style="margin-top: 20px;">
+                <h2 id="lobby-name"></h2>
+                <p>
+                    Status: <strong id="lobby-state"></strong>
+                    &middot; Created by <span id="lobby-creator"></span>
+                </p>
+            </header>
+
+            <hr>
+
+            <section id="invite-section">
+                <h3>Invite Code</h3>
+                <p>Share this code so others can join:</p>
+                <p>
+                    <code id="invite-code"
+                          style="font-size: 24px; letter-spacing: 3px; padding: 6px 10px; background: #f0f0f0;"></code>
+                    <button id="copy-code-btn">Copy</button>
+                    <span id="copy-feedback" style="color: green;"></span>
+                </p>
+            </section>
+
+            <hr>
+
+            <section id="members-section">
+                <h3>Members (<span id="member-count">0</span>)</h3>
+                <ul id="member-list"></ul>
+            </section>
+
+            <hr>
+
+            <section id="lobby-actions">
+                <h3>Actions</h3>
+
+                <!-- Creator-only controls -->
+                <div id="creator-controls" style="display: none; margin-bottom: 16px;">
+                    <form id="rename-form" style="margin-bottom: 10px;">
+                        <input type="text" id="rename-input" placeholder="New lobby name" maxlength="100" required>
+                        <button type="submit">Rename</button>
+                    </form>
+                    <button id="delete-lobby-btn">Delete Lobby</button>
+                </div>
+
+                <!-- Non-creator control -->
+                <button id="leave-lobby-btn" style="display: none;">Leave Lobby</button>
+
+                <p id="action-error" style="color: red;"></p>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="/JavaScripts/lobby.js"></script>
+</body>
+</html>
