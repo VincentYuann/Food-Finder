@@ -4,54 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FoodFinder - Dashboard</title>
+
+    <link rel="stylesheet" href="./css/main.css">
+    <link rel="stylesheet" href="./css/dashboard.css">
 </head>
 <body>
-    <div class="dashboard-layout" style="display: flex;">
+    <div class="dashboard-layout">
         
         <!-- Sidebar: Profile & Controls -->
-        <aside style="width: 250px; padding: 20px; border-right: 1px solid #ccc;">
+        <aside class="sidebar">
             <div id="user-profile">
                 <h3 id="display-username">Loading...</h3>
                 <p id="display-email"></p>
-                <button id="logout-btn">Log Out</button>
+                <button id="logout-btn" class="btn">Log Out</button>
             </div>
-            <hr style="margin: 20px 0;">
+            <hr>
             
-            <!-- NEW: Link to the Search page -->
-            <div style="margin-bottom: 20px;">
+            <div class="sidebar-section">
                 <h4>Discover</h4>
-                <a href="/search.html" style="display: inline-block; padding: 10px 15px; background: #667eea; color: white; text-decoration: none; border-radius: 6px; margin-top: 10px; font-size: 14px;">🔍 Search Restaurants</a>
+                <a href="/search.html" class="btn btn-secondary">🔍 Search Restaurants</a>
             </div>
 
-            <div>
+            <div class="sidebar-section">
                 <h4>Create a Lobby</h4>
                 <form id="create-lobby-form">
-                    <input type="text" id="create-lobby-name" placeholder="Lobby name" maxlength="100" required>
-                    <button type="submit">Create</button>
+                    <input type="text" id="create-lobby-name" placeholder="New lobby name..." maxlength="100" required>
+                    <button type="submit" class="btn btn-primary">Create</button>
                 </form>
             </div>
-            <div style="margin-top: 20px;">
+            <div class="sidebar-section">
                 <h4>Join a Lobby</h4>
                 <form id="join-lobby-form">
-                    <input type="text" id="join-lobby-code" placeholder="Invite code" maxlength="10" required>
-                    <button type="submit">Join</button>
+                    <input type="text" id="join-lobby-code" placeholder="Lobby invite code..." maxlength="10" required>
+                    <button type="submit" class="btn btn-primary">Join</button>
                 </form>
             </div>
-            <p id="lobby-error" style="color: red;"></p>
+            <p id="lobby-error" class="error-message"></p>
         </aside>
 
         <!-- Main Content Area -->
-        <main style="flex: 1; padding: 20px;">
+        <main class="main-content">
             <h2>Your Dashboard</h2>
 
-            <section id="saved-restaurants-section" style="margin-top: 20px;">
+            <section id="saved-restaurants-section" class="dashboard-section">
                 <h3>Saved Restaurants</h3>
                 <ul id="saved-list">
                     <!-- Populated by JS -->
                 </ul>
             </section>
 
-            <section id="lobby-history-section" style="margin-top: 40px;">
+            <section id="lobby-history-section" class="dashboard-section">
                 <h3>Your Lobbies</h3>
                 <ul id="lobby-list">
                     <!-- Populated by JS -->

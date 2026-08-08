@@ -4,65 +4,63 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FoodFinder - Lobby</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <!-- CSS -->
+    <link rel="stylesheet" href="./css/main.css">
+    <link rel="stylesheet" href="./css/dashboard.css"> <!-- Re-use button/input/card styles -->
+    <link rel="stylesheet" href="./css/lobby.css">
 </head>
 <body>
-    <div style="max-width: 800px; margin: 0 auto; padding: 20px;">
+    <div class="lobby-page-container">
+        <header class="lobby-header">
+            <div class="header-content">
+                <h1 id="lobby-name">Loading Lobby...</h1>
+                <a href="/index.html" class="back-link">← Back to Dashboard</a>
+            </div>
+            <div id="lobby-meta-info" class="lobby-meta">
+                <!-- Populated by JS -->
+            </div>
+        </header>
 
-        <a href="/index.html">&larr; Back to Dashboard</a>
+        <div class="lobby-layout">
+            <!-- Main Content: Restaurants & Chat -->
+            <main class="lobby-main-content">
+                <section class="lobby-section">
+                    <h3>Restaurant Options</h3>
+                    <div class="section-controls">
+                        <a href="/search.html" class="btn btn-secondary">＋ Add from Search</a>
+                    </div>
+                    <div id="lobby-restaurants-list" class="restaurants-grid">
+                        <!-- Restaurant cards will be populated by JS -->
+                    </div>
+                </section>
 
-        <!-- Shown while loading, or if the lobby is missing / not ours -->
-        <p id="lobby-status-message">Loading lobby&hellip;</p>
+                <section class="lobby-section">
+                    <h3>Lobby Chat</h3>
+                    <div id="chat-container">
+                        <div id="chat-messages">
+                            <!-- Messages populated by JS -->
+                        </div>
+                        <form id="chat-form">
+                            <input type="text" id="chat-input" placeholder="Send a message..." autocomplete="off">
+                            <button type="submit" class="btn btn-primary">Send</button>
+                        </form>
+                    </div>
+                </section>
+            </main>
 
-        <div id="lobby-content" style="display: none;">
-
-            <header style="margin-top: 20px;">
-                <h2 id="lobby-name"></h2>
-                <p>
-                    Status: <strong id="lobby-state"></strong>
-                    &middot; Created by <span id="lobby-creator"></span>
-                </p>
-            </header>
-
-            <hr>
-
-            <section id="invite-section">
-                <h3>Invite Code</h3>
-                <p>Share this code so others can join:</p>
-                <p>
-                    <code id="invite-code"
-                          style="font-size: 24px; letter-spacing: 3px; padding: 6px 10px; background: #f0f0f0;"></code>
-                    <button id="copy-code-btn">Copy</button>
-                    <span id="copy-feedback" style="color: green;"></span>
-                </p>
-            </section>
-
-            <hr>
-
-            <section id="members-section">
-                <h3>Members (<span id="member-count">0</span>)</h3>
-                <ul id="member-list"></ul>
-            </section>
-
-            <hr>
-
-            <section id="lobby-actions">
-                <h3>Actions</h3>
-
-                <!-- Creator-only controls -->
-                <div id="creator-controls" style="display: none; margin-bottom: 16px;">
-                    <form id="rename-form" style="margin-bottom: 10px;">
-                        <input type="text" id="rename-input" placeholder="New lobby name" maxlength="100" required>
-                        <button type="submit">Rename</button>
-                    </form>
-                    <button id="delete-lobby-btn">Delete Lobby</button>
+            <!-- Sidebar: Members & Details -->
+            <aside class="lobby-sidebar">
+                <div class="sidebar-widget">
+                    <h4>Members (<span id="member-count">0</span>)</h4>
+                    <ul id="members-list">
+                        <!-- Populated by JS -->
+                    </ul>
                 </div>
-
-                <!-- Non-creator control -->
-                <button id="leave-lobby-btn" style="display: none;">Leave Lobby</button>
-
-                <p id="action-error" style="color: red;"></p>
-            </section>
-
+            </aside>
         </div>
     </div>
 

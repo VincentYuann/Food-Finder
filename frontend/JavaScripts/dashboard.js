@@ -28,145 +28,115 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // 2. Load Saved Restaurants
     async function loadSavedRestaurants() {
+        const list = document.getElementById('saved-list');
+        list.innerHTML = '<li class="dashboard-card">Loading saved restaurants...</li>';
+
         try {
-            const response = await fetch(`${API_BASE_URL}/api/users/profile/saved-restaurants`, {
+            // Use the correct, existing endpoint from restaurantRoutes.js
+            const response = await fetch(`${API_BASE_URL}/api/restaurants/saved`, {
                 method: 'GET',
                 credentials: 'include'
             });
 
-            if (response.ok) {
-                const saved = await response.json();
-                const list = document.getElementById('saved-list');
-
-                if (saved.length === 0) {
-                    list.innerHTML = '<li>No saved restaurants yet.</li>';
-                    return;
-                }
-
-                list.innerHTML = saved.map(item => `
-                    <li>
-                        <strong>${item.restaurant.name}</strong> 
-                        <button onclick="removeRestaurant(${item.restaurant_id})">Remove</button>
-                    </li>
-                `).join('');
+            if (!response.ok) {
+                throw new Error(`Failed to load: ${response.statusText}`);
             }
+
+            const saved = await response.json();
+
+            if (saved.length > 10) {
+                list.classList.add('scrollable-list');
+            } else {
+                list.classList.remove('scrollable-list');
+            }
+
+            if (saved.length === 0) {
+                list.innerHTML = '<li class="dashboard-card">No saved restaurants yet.</li>';
+                return;
+            }
+
+            // Adjust mapping to handle the cleaner data structure from /api/restaurants/saved
+            list.innerHTML = saved.map(restaurant => {
+                const ratingHTML = restaurant.rating ? `
+                        <div class="meta-item rating">
+                            <span class="stars">★</span>
+                            <span>${parseFloat(restaurant.rating).toFixed(1)}</span>
+                        </div>
+                    ` : '';
+
+                // Escape single quotes in the ID to prevent breaking the onclick attribute
+                const escapedApiPlaceId = restaurant.api_place_id.replace(/'/g, "\\'");
+
+                return `
+                    <li class="dashboard-card" id="saved-restaurant-${restaurant.id}">
+                        <div class="card-content">
+                            <div class="card-title">${restaurant.name}</div>
+                            <div class="card-address">${restaurant.address || 'Address not available'}</div>
+                            <div class="card-meta">${ratingHTML}</div>
+                        </div>
+                        <div class="card-actions">
+                            <a href="#" onclick="viewRestaurantDetails('${escapedApiPlaceId}')" class="btn btn-details">Details</a>
+                            <button onclick="removeRestaurant(${restaurant.id})" class="btn btn-danger">Remove</button>
+                        </div>
+                    </li>
+                `;
+            }).join('');
+
         } catch (error) {
             console.error('Failed to load saved restaurants', error);
+            // Add UI feedback for the error
+            list.innerHTML = `<li class="dashboard-card error-message">Could not load saved restaurants.</li>`;
         }
     }
 
     // 3. Load Lobbies
     async function loadLobbies() {
         const list = document.getElementById('lobby-list');
+        list.innerHTML = '<li class="dashboard-card">Loading your lobbies...</li>';
 
         try {
-            const response = await fetch(`${API_BASE_URL}/api/lobbies`, {
+            const response = await fetch(`${API_BASE_URL}/api/users/profile/lobbies`, {
                 method: 'GET',
                 credentials: 'include'
             });
 
-            if (!response.ok) return;
+            if (response.ok) {
+                const memberships = await response.json();
 
-            const lobbies = await response.json();
-            list.replaceChildren();
+                if (memberships.length > 10) {
+                    list.classList.add('scrollable-list');
+                } else {
+                    list.classList.remove('scrollable-list');
+                }
 
-            if (lobbies.length === 0) {
-                const empty = document.createElement('li');
-                empty.textContent = 'You have not joined any lobbies.';
-                list.appendChild(empty);
-                return;
-            }
+                if (memberships.length === 0) {
+                    list.innerHTML = '<li class="dashboard-card">You have not joined any lobbies.</li>';
+                    return;
+                }
 
-            // Built with DOM APIs rather than innerHTML — lobby names come from other users.
-            for (const lobby of lobbies) {
-                const item = document.createElement('li');
-
-                const link = document.createElement('a');
-                link.href = `/lobby.html?id=${lobby.id}`;
-                link.textContent = lobby.name || 'Untitled Lobby';
-                item.appendChild(link);
-
-                const meta = document.createElement('span');
-                meta.textContent = ` — ${lobby.status} · ${lobby._count.members} member(s)`;
-                item.appendChild(meta);
-
-                list.appendChild(item);
+                list.innerHTML = memberships.map(m => {
+                    const lobby = m.lobby;
+                    return `
+                    <li class="dashboard-card">
+                        <div class="card-content">
+                            <div class="card-title">${lobby.name || 'Untitled Lobby'}</div>
+                            <div class="card-meta">
+                                <div class="meta-item status status-${lobby.status.toLowerCase()}">Status: <strong>${lobby.status}</strong></div>
+                            </div>
+                        </div>
+                        <div class="card-actions">
+                            <a href="/lobby.html?id=${lobby.id}" class="btn btn-primary">View Lobby</a>
+                        </div>
+                    </li>`;
+                }).join('');
             }
         } catch (error) {
             console.error('Failed to load lobbies', error);
+            list.innerHTML = `<li class="dashboard-card error-message">Could not load your lobbies.</li>`;
         }
     }
 
-    // 4. Create / Join a Lobby
-    const lobbyError = document.getElementById('lobby-error');
-
-    async function errorFrom(response, fallback) {
-        try {
-            const body = await response.json();
-            return body.error || body.message || fallback;
-        } catch {
-            return fallback;
-        }
-    }
-
-    document.getElementById('create-lobby-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        lobbyError.textContent = '';
-
-        const nameInput = document.getElementById('create-lobby-name');
-        const name = nameInput.value.trim();
-        if (!name) return;
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/lobbies`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name }),
-                credentials: 'include'
-            });
-
-            if (!response.ok) {
-                lobbyError.textContent = await errorFrom(response, 'Could not create the lobby.');
-                return;
-            }
-
-            // Go straight to the new lobby so the host can grab the invite code.
-            const lobby = await response.json();
-            window.location.href = `/lobby.html?id=${lobby.id}`;
-        } catch (error) {
-            lobbyError.textContent = 'Server error. Please try again.';
-        }
-    });
-
-    document.getElementById('join-lobby-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        lobbyError.textContent = '';
-
-        const codeInput = document.getElementById('join-lobby-code');
-        const invite_code = codeInput.value.trim();
-        if (!invite_code) return;
-
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/lobbies/join`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ invite_code }),
-                credentials: 'include'
-            });
-
-            if (!response.ok) {
-                lobbyError.textContent = await errorFrom(response, 'Could not join the lobby.');
-                return;
-            }
-
-            const lobby = await response.json();
-            window.location.href = `/lobby.html?id=${lobby.id}`;
-        } catch (error) {
-            lobbyError.textContent = 'Server error. Please try again.';
-        }
-    });
-
-    // 5. Handle Logout
+    // 4. Handle Logout
     document.getElementById('logout-btn').addEventListener('click', async () => {
         try {
             await fetch(`${API_BASE_URL}/api/users/logout`, {
@@ -188,16 +158,34 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Global function for the remove button to access
 window.removeRestaurant = async (restaurantId) => {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/users/profile/saved-restaurants/${restaurantId}`, {
+        // Use the correct DELETE endpoint from restaurantRoutes.js
+        const response = await fetch(`${API_BASE_URL}/api/restaurants/saved/${restaurantId}`, {
             method: 'DELETE',
             credentials: 'include'
         });
 
         if (response.ok) {
-            // Reload the list to show the update
-            location.reload();
+            // UX Improvement: Remove the element from the DOM without a full page reload.
+            const elementToRemove = document.getElementById(`saved-restaurant-${restaurantId}`);
+            if (elementToRemove) {
+                elementToRemove.remove();
+            }
+            // If the list is now empty, show the "No saved" message.
+            const list = document.getElementById('saved-list');
+            if (list.children.length === 0) {
+                list.innerHTML = '<li class="dashboard-card">No saved restaurants yet.</li>';
+            }
+        } else {
+            alert('Failed to remove restaurant.');
         }
     } catch (error) {
         console.error('Failed to remove restaurant', error);
+        alert('An error occurred while removing the restaurant.');
     }
+};
+
+// Global function for details link
+window.viewRestaurantDetails = (apiPlaceId) => {
+    // This is a placeholder. In the future, this could open a modal with details.
+    alert(`Restaurant details for ${apiPlaceId} are coming soon!`);
 };

@@ -1,241 +1,182 @@
-// Change this manually to 'https://api.yourdomain.com' only when deploying to the cloud.
 const API_BASE_URL = 'http://localhost:5000';
 
-const lobbyId = new URLSearchParams(window.location.search).get('id');
-
-const statusMessage = document.getElementById('lobby-status-message');
-const lobbyContent = document.getElementById('lobby-content');
-const actionError = document.getElementById('action-error');
-
-let currentUserId = null;
-
-function showStatus(text) {
-    statusMessage.textContent = text;
-    statusMessage.style.display = text ? 'block' : 'none';
-}
-
-function showError(text) {
-    actionError.textContent = text;
-}
-
-// Reads the JSON error body an endpoint returned, falling back to a generic message.
-async function errorFrom(response, fallback) {
-    try {
-        const body = await response.json();
-        return body.error || body.message || fallback;
-    } catch {
-        return fallback;
-    }
-}
+// State
+let currentLobby = null;
+let currentUser = null; // We'll need this to know who is who
 
 document.addEventListener('DOMContentLoaded', async () => {
+    const lobbyId = new URLSearchParams(window.location.search).get('id');
     if (!lobbyId) {
-        showStatus('No lobby selected.');
+        window.location.replace('/index.html');
         return;
     }
 
-    // Identify the current user so we know whether to show creator controls.
+    // We need to know who the current user is to render chat correctly and check permissions
+    await loadProfile();
+
+    // Load lobby details first, as other calls depend on it
+    await loadLobbyDetails(lobbyId);
+
+    // Once details are loaded, fetch other data in parallel
+    if (currentLobby) {
+        await Promise.all([
+            loadLobbyMembers(lobbyId),
+            loadLobbyRestaurants(lobbyId)
+            // loadLobbyMessages(lobbyId) // Placeholder for future implementation
+        ]);
+    }
+
+    // Use mock/placeholder data for now to show the layout
+    renderMessages([]);
+});
+
+async function loadProfile() {
     try {
-        const profileRes = await fetch(`${API_BASE_URL}/api/users/profile`, {
+        const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
             method: 'GET',
             credentials: 'include'
         });
+        if (!response.ok) throw new Error('Not authenticated');
+        currentUser = await response.json();
+    } catch (error) {
+        console.error('Failed to load profile', error);
+        // If profile fails, user is not logged in, so redirect.
+        window.location.replace('/login.html');
+    }
+}
 
-        if (!profileRes.ok) {
-            window.location.replace('/login.html');
-            return;
+async function loadLobbyDetails(lobbyId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/lobbies/${lobbyId}`, {
+            credentials: 'include'
+        });
+        if (!response.ok) {
+            // If the user is not a member, the API will return 403/404. Redirect them.
+            throw new Error('Failed to load lobby details or you are not a member.');
         }
 
-        currentUserId = (await profileRes.json()).id;
+        const lobby = await response.json();
+        currentLobby = lobby;
+
+        document.getElementById('lobby-name').textContent = lobby.name;
+
+        const metaContainer = document.getElementById('lobby-meta-info');
+        metaContainer.innerHTML = `
+            <div class="meta-item">Status: <strong>${lobby.status}</strong></div>
+            <div class="meta-item">Invite Code: <strong>${lobby.invite_code}</strong></div>
+            <div class="meta-item">Created by: <strong>@${lobby.creator.username}</strong></div>
+        `;
+
     } catch (error) {
-        showStatus('Could not reach the server.');
+        console.error(error);
+        alert(error.message);
+        window.location.replace('/index.html');
+    }
+}
+
+async function loadLobbyRestaurants(lobbyId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/lobbies/${lobbyId}/restaurants`, {
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error('Failed to load lobby restaurants');
+        const restaurantOptions = await response.json();
+        renderRestaurants(restaurantOptions);
+    } catch (error) {
+        console.error(error);
+        document.getElementById('lobby-restaurants-list').innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: #d9534f;">Could not load restaurants.</p>`;
+    }
+}
+
+async function loadLobbyMembers(lobbyId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/lobbies/${lobbyId}/members`, {
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error('Failed to load members');
+
+        const members = await response.json();
+        renderMembers(members);
+    } catch (error) {
+        console.error(error);
+        document.getElementById('members-list').innerHTML = '<li>Error loading members.</li>';
+    }
+}
+
+function renderMembers(members) {
+    const list = document.getElementById('members-list');
+    document.getElementById('member-count').textContent = members.length;
+
+    if (members.length > 10) {
+        list.classList.add('scrollable-list');
+    } else {
+        list.classList.remove('scrollable-list');
+    }
+
+    if (!members || members.length === 0) {
+        list.innerHTML = '<li>No members found.</li>';
         return;
     }
 
-    await loadLobby();
-});
+    list.innerHTML = members.map(member => {
+        const user = member.user;
+        const isCreator = user.id === currentLobby.created_by;
+        const firstLetter = user.username.charAt(0);
 
-async function loadLobby() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/lobbies/${lobbyId}`, {
-            method: 'GET',
-            credentials: 'include'
-        });
-
-        if (response.status === 401) {
-            window.location.replace('/login.html');
-            return;
-        }
-        if (response.status === 403) {
-            showStatus('You are not a member of this lobby.');
-            return;
-        }
-        if (response.status === 404) {
-            showStatus('That lobby no longer exists.');
-            return;
-        }
-        if (!response.ok) {
-            showStatus('Could not load this lobby.');
-            return;
-        }
-
-        renderLobby(await response.json());
-    } catch (error) {
-        console.error('Failed to load lobby', error);
-        showStatus('Could not reach the server.');
-    }
+        return `
+            <li class="${isCreator ? 'member-creator' : ''}">
+                <div class="member-avatar">${firstLetter}</div>
+                <span class="member-name">${user.username}</span>
+            </li>
+        `;
+    }).join('');
 }
 
-function renderLobby(lobby) {
-    const isCreator = lobby.created_by === currentUserId;
+function renderRestaurants(options) {
+    const container = document.getElementById('lobby-restaurants-list');
 
-    // textContent throughout — lobby names and usernames come from other users.
-    document.getElementById('lobby-name').textContent = lobby.name || 'Untitled Lobby';
-    document.getElementById('lobby-state').textContent = lobby.status;
-    document.getElementById('lobby-creator').textContent = `@${lobby.creator.username}`;
-    document.getElementById('invite-code').textContent = lobby.invite_code || '—';
-    document.getElementById('member-count').textContent = lobby.members.length;
-
-    const list = document.getElementById('member-list');
-    list.replaceChildren();
-
-    for (const member of lobby.members) {
-        const item = document.createElement('li');
-        item.textContent = `@${member.user.username}`;
-
-        if (member.user.id === lobby.created_by) {
-            const tag = document.createElement('em');
-            tag.textContent = ' (host)';
-            item.appendChild(tag);
-        }
-        if (member.user.id === currentUserId) {
-            const tag = document.createElement('em');
-            tag.textContent = ' (you)';
-            item.appendChild(tag);
-        }
-
-        // The host can remove anyone but themselves.
-        if (isCreator && member.user.id !== lobby.created_by) {
-            const kick = document.createElement('button');
-            kick.textContent = 'Remove';
-            kick.style.marginLeft = '10px';
-            kick.addEventListener('click', () => removeMember(member.user.id, member.user.username));
-            item.appendChild(kick);
-        }
-
-        list.appendChild(item);
+    if (options.length > 10) {
+        container.classList.add('scrollable-list');
+    } else {
+        container.classList.remove('scrollable-list');
     }
 
-    document.getElementById('creator-controls').style.display = isCreator ? 'block' : 'none';
-    document.getElementById('leave-lobby-btn').style.display = isCreator ? 'none' : 'inline-block';
-    document.getElementById('rename-input').value = lobby.name || '';
+    if (!options || options.length === 0) {
+        container.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: #777;">No restaurants have been added yet. Use the "Add from Search" button!</p>`;
+        return;
+    }
 
-    showStatus('');
-    lobbyContent.style.display = 'block';
+    const fallbackHTML = `<div class=&quot;no-image&quot;>📷 No photo</div>`;
+
+    container.innerHTML = options.map(option => {
+        const restaurant = option.restaurant;
+        const ratingHTML = restaurant.rating ? `
+            <div class="rating">
+                <span class="stars">★</span>
+                <span>${parseFloat(restaurant.rating).toFixed(1)}</span>
+            </div>
+        ` : '';
+        const priceHTML = restaurant.price_level ? `<div class="price-level">${'$'.repeat(restaurant.price_level)}</div>` : '';
+
+        return `
+            <div class="restaurant-card">
+                <div class="restaurant-image">
+                    ${restaurant.photo_url ? `<img src="${restaurant.photo_url}" alt="${restaurant.name}" onerror="this.parentElement.innerHTML='${fallbackHTML}'"/>` : fallbackHTML}
+                </div>
+                <div class="restaurant-info">
+                    <div class="restaurant-name">${restaurant.name}</div>
+                    <div class="restaurant-meta">${ratingHTML} ${priceHTML}</div>
+                    <div class="restaurant-address">${restaurant.address}</div>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" onclick="alert('Voting coming soon!')">Vote</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
-// --- Actions ---
-
-document.getElementById('copy-code-btn').addEventListener('click', async () => {
-    const code = document.getElementById('invite-code').textContent;
-    const feedback = document.getElementById('copy-feedback');
-
-    try {
-        await navigator.clipboard.writeText(code);
-        feedback.textContent = 'Copied!';
-    } catch {
-        // Clipboard access needs a secure context, which plain http://localhost may not give.
-        feedback.textContent = `Copy it manually: ${code}`;
-    }
-
-    setTimeout(() => { feedback.textContent = ''; }, 2000);
-});
-
-document.getElementById('rename-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    showError('');
-
-    const name = document.getElementById('rename-input').value.trim();
-    if (!name) return;
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/lobbies/${lobbyId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name }),
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            showError(await errorFrom(response, 'Could not rename the lobby.'));
-            return;
-        }
-
-        await loadLobby();
-    } catch (error) {
-        showError('Server error. Please try again.');
-    }
-});
-
-document.getElementById('delete-lobby-btn').addEventListener('click', async () => {
-    if (!confirm('Delete this lobby for everyone? This cannot be undone.')) return;
-    showError('');
-
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/lobbies/${lobbyId}`, {
-            method: 'DELETE',
-            credentials: 'include'
-        });
-
-        if (!response.ok) {
-            showError(await errorFrom(response, 'Could not delete the lobby.'));
-            return;
-        }
-
-        window.location.replace('/index.html');
-    } catch (error) {
-        showError('Server error. Please try again.');
-    }
-});
-
-document.getElementById('leave-lobby-btn').addEventListener('click', async () => {
-    if (!confirm('Leave this lobby?')) return;
-    showError('');
-
-    try {
-        const response = await fetch(
-            `${API_BASE_URL}/api/lobbies/${lobbyId}/members/${currentUserId}`,
-            { method: 'DELETE', credentials: 'include' }
-        );
-
-        if (!response.ok) {
-            showError(await errorFrom(response, 'Could not leave the lobby.'));
-            return;
-        }
-
-        window.location.replace('/index.html');
-    } catch (error) {
-        showError('Server error. Please try again.');
-    }
-});
-
-async function removeMember(userId, username) {
-    if (!confirm(`Remove @${username} from this lobby?`)) return;
-    showError('');
-
-    try {
-        const response = await fetch(
-            `${API_BASE_URL}/api/lobbies/${lobbyId}/members/${userId}`,
-            { method: 'DELETE', credentials: 'include' }
-        );
-
-        if (!response.ok) {
-            showError(await errorFrom(response, 'Could not remove that member.'));
-            return;
-        }
-
-        await loadLobby();
-    } catch (error) {
-        showError('Server error. Please try again.');
-    }
+function renderMessages(messages) {
+    const container = document.getElementById('chat-messages');
+    container.innerHTML = `<div class="chat-system-message">Be the first to send a message!</div>`;
 }

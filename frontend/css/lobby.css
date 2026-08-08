@@ -1,0 +1,235 @@
+/* ========================================== */
+/*                 LOBBY STYLES               */
+/* ========================================== */
+
+body {
+    padding: 2rem 1rem;
+}
+
+.lobby-page-container {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Header */
+.lobby-header {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.05);
+    margin-bottom: 2rem;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.lobby-header h1 {
+    font-family: 'Poppins', sans-serif;
+    color: #ff6347;
+    font-size: 2.5rem;
+    margin: 0;
+}
+
+.back-link {
+    color: #ff6347;
+    text-decoration: none;
+    font-weight: bold;
+}
+.back-link:hover { text-decoration: underline; }
+
+.lobby-meta {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    font-size: 0.9rem;
+    color: #666;
+}
+.meta-item {
+    background: #f9f9f9;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+}
+.meta-item strong { color: #333; }
+
+/* Layout */
+.lobby-layout {
+    display: flex;
+    gap: 2rem;
+}
+
+.lobby-main-content {
+    flex-grow: 1;
+    min-width: 0; /* Prevents flexbox overflow */
+}
+
+.lobby-sidebar {
+    width: 300px;
+    flex-shrink: 0;
+}
+
+.lobby-section {
+    margin-bottom: 2.5rem;
+}
+
+.lobby-section h3 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.6rem;
+    color: #333;
+    margin-bottom: 1.5rem;
+}
+
+.section-controls {
+    margin-bottom: 1.5rem;
+}
+
+/* Restaurant Grid (re-using some search styles) */
+.restaurants-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+/* Restaurant Card (adapted from search.css) */
+.restaurant-card {
+    background: #fff;
+    border-radius: 12px;
+    border: 1px solid #eee;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.restaurant-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.restaurant-image { height: 160px; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #888; }
+.restaurant-image img { width: 100%; height: 100%; object-fit: cover; }
+.no-image { font-size: 1rem; }
+
+.restaurant-info { padding: 1rem 1.25rem; display: flex; flex-direction: column; flex-grow: 1; }
+.restaurant-name { font-family: 'Poppins', sans-serif; font-size: 1.1rem; font-weight: 700; color: #333; margin-bottom: 0.5rem; }
+.restaurant-meta { display: flex; gap: 1rem; align-items: center; font-size: 0.9rem; color: #666; margin-bottom: 0.75rem; }
+.rating .stars { color: #f59e0b; }
+.price-level { font-weight: bold; }
+
+.restaurant-address { font-size: 0.85rem; color: #777; margin-bottom: 1rem; flex-grow: 1; }
+
+.action-buttons { display: flex; gap: 0.5rem; margin-top: auto; }
+.action-buttons button { flex: 1; padding: 0.5rem; font-size: 0.9rem; }
+
+/* Scrollable containers for lobby page */
+.restaurants-grid.scrollable-list {
+    max-height: 80vh;
+}
+
+#members-list.scrollable-list {
+    max-height: 40vh;
+}
+
+/* Sidebar Widgets */
+.sidebar-widget {
+    background: #fff;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.05);
+    margin-bottom: 1.5rem;
+}
+.sidebar-widget h4 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.1rem;
+    color: #555;
+    margin-top: 0;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 0.75rem;
+}
+
+/* Members List */
+#members-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+#members-list li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+}
+.member-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #ff6347;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+.member-creator .member-name::after {
+    content: '👑';
+    margin-left: 0.5rem;
+}
+
+/* Chat */
+#chat-container {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    height: 400px;
+}
+#chat-messages {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
+.chat-system-message {
+    text-align: center;
+    color: #999;
+    font-style: italic;
+}
+
+#chat-form {
+    display: flex;
+    border-top: 1px solid #eee;
+    padding: 0.75rem;
+}
+#chat-form input {
+    flex-grow: 1;
+    border: none;
+    padding: 0.75rem;
+    font-size: 1rem;
+    background: transparent;
+}
+#chat-form input:focus {
+    outline: none;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .lobby-layout {
+        flex-direction: column-reverse;
+    }
+    .lobby-sidebar {
+        width: 100%;
+    }
+}

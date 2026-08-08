@@ -3,56 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FoodFinder - Search Restaurants</title>
-    <!-- Link to the newly separated CSS file -->
-    <link rel="stylesheet" href="/css/search.css">
+    <title>FoodFinder - Search</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <!-- CSS -->
+    <link rel="stylesheet" href="./css/main.css">
+    <link rel="stylesheet" href="./css/dashboard.css"> <!-- Re-use button/input styles -->
+    <link rel="stylesheet" href="./css/search.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Links back to the dashboard -->
-        <a href="/index.html" class="btn-back nav-link">← Back to Dashboard</a>
-        
-        <header>
-            <h1>🍽️ Discover Restaurants</h1>
-            
-            <div class="search-section">
-                <div class="search-group">
-                    <label for="search-input">Search by name or cuisine</label>
-                    <input 
-                        type="text" 
-                        id="search-input" 
-                        placeholder="e.g., sushi, pizza, Thai"
-                        autocomplete="off"
-                    />
-                </div>
-
-                <div class="search-group">
-                    <label for="radius-input">Search radius (meters)</label>
-                    <select id="radius-input">
-                        <option value="1000">1 km</option>
-                        <option value="1500" selected>1.5 km</option>
-                        <option value="2000">2 km</option>
-                        <option value="3000">3 km</option>
-                        <option value="5000">5 km</option>
-                    </select>
-                </div>
-
-                <div class="button-group">
-                    <button class="btn-location" id="use-location-btn">📍 Use My Location</button>
-                    <button class="btn-search" id="search-btn">Search</button>
-                </div>
-            </div>
+    <div class="search-page-container">
+        <header class="search-header">
+            <h1>Find Your Next Meal</h1>
+            <a href="/index.html" class="back-link">← Back to Dashboard</a>
         </header>
 
-        <div id="status-message"></div>
-        <div id="loading">
-            <div class="spinner"></div>
-            <p>Searching for restaurants...</p>
+        <div class="search-controls">
+            <div class="control-group">
+                <label for="search-input">What are you craving?</label>
+                <input type="text" id="search-input" placeholder="e.g., Pizza, Sushi, Tacos...">
+            </div>
+            <div class="control-group location-controls">
+                <button id="use-location-btn" class="btn btn-secondary">📍 Use My Location</button>
+                <div class="radius-group">
+                    <label for="radius-input">Radius (meters)</label>
+                    <input type="number" id="radius-input" value="1500" step="500" min="500">
+                </div>
+            </div>
+            <button id="search-btn" class="btn btn-primary">Search Restaurants</button>
         </div>
-        <div id="results-container" class="results-container"></div>
-    </div>
 
-    <!-- Keep JS logic separated as well -->
+        <div id="status-message"></div>
+        <div id="loading"><div class="spinner"></div></div>
+
+        <main id="results-container" class="results-grid"></main>
+    </div>
     <script src="/JavaScripts/search.js"></script>
 </body>
 </html>
