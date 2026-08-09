@@ -33,6 +33,6 @@ services:
     # Use "docker compose watch" for local development
     develop:
       watch:
-        - path: ./frontend/src
-          target: /app/src # Syncs to builder stage directory for dev
+        - path: ./frontend
+          target: /usr/share/nginx/html
           action: sync+restart
