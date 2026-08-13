@@ -136,7 +136,79 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // 4. Handle Logout
+    // 4. Create / Join a Lobby
+    const lobbyError = document.getElementById('lobby-error');
+
+    // Reads the JSON error body an endpoint returned, falling back to a generic message.
+    async function errorFrom(response, fallback) {
+        try {
+            const body = await response.json();
+            return body.error || body.message || fallback;
+        } catch {
+            return fallback;
+        }
+    }
+
+    document.getElementById('create-lobby-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        lobbyError.textContent = '';
+
+        const nameInput = document.getElementById('create-lobby-name');
+        const name = nameInput.value.trim();
+        if (!name) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/lobbies`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                lobbyError.textContent = await errorFrom(response, 'Could not create the lobby.');
+                return;
+            }
+
+            // Go straight to the new lobby so the host can grab the invite code.
+            const lobby = await response.json();
+            window.location.href = `/lobby.html?id=${lobby.id}`;
+        } catch (error) {
+            console.error('Failed to create lobby', error);
+            lobbyError.textContent = 'Server error. Please try again.';
+        }
+    });
+
+    document.getElementById('join-lobby-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        lobbyError.textContent = '';
+
+        const codeInput = document.getElementById('join-lobby-code');
+        const invite_code = codeInput.value.trim();
+        if (!invite_code) return;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/lobbies/join`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ invite_code }),
+                credentials: 'include'
+            });
+
+            if (!response.ok) {
+                lobbyError.textContent = await errorFrom(response, 'Could not join the lobby.');
+                return;
+            }
+
+            const lobby = await response.json();
+            window.location.href = `/lobby.html?id=${lobby.id}`;
+        } catch (error) {
+            console.error('Failed to join lobby', error);
+            lobbyError.textContent = 'Server error. Please try again.';
+        }
+    });
+
+    // 5. Handle Logout
     document.getElementById('logout-btn').addEventListener('click', async () => {
         try {
             await fetch(`${API_BASE_URL}/api/users/logout`, {

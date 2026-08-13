@@ -208,6 +208,40 @@ body {
     font-style: italic;
 }
 
+.chat-message {
+    margin-bottom: 0.85rem;
+    max-width: 75%;
+}
+.chat-message.own-message {
+    margin-left: auto;
+    text-align: right;
+}
+.chat-message-meta {
+    font-size: 0.75rem;
+    color: #999;
+    margin-bottom: 0.2rem;
+}
+.chat-author {
+    font-weight: 700;
+    color: #666;
+}
+.chat-time {
+    margin-left: 0.4rem;
+}
+.chat-bubble {
+    display: inline-block;
+    padding: 0.5rem 0.8rem;
+    border-radius: 12px;
+    background: #f1f1f1;
+    color: #333;
+    text-align: left;
+    word-break: break-word;
+}
+.chat-message.own-message .chat-bubble {
+    background: #ff6347;
+    color: #fff;
+}
+
 #chat-form {
     display: flex;
     border-top: 1px solid #eee;

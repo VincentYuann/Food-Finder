@@ -3,6 +3,19 @@ const API_BASE_URL = 'http://localhost:5000';
 // State
 let currentLobby = null;
 let currentUser = null; // We'll need this to know who is who
+let currentLobbyId = null;
+
+// Lobby names, usernames and restaurant names all come from other users,
+// so anything interpolated into innerHTML has to be escaped first.
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
     const lobbyId = new URLSearchParams(window.location.search).get('id');
@@ -10,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.replace('/index.html');
         return;
     }
+    currentLobbyId = lobbyId;
 
     // We need to know who the current user is to render chat correctly and check permissions
     await loadProfile();
@@ -21,13 +35,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (currentLobby) {
         await Promise.all([
             loadLobbyMembers(lobbyId),
-            loadLobbyRestaurants(lobbyId)
-            // loadLobbyMessages(lobbyId) // Placeholder for future implementation
+            loadLobbyRestaurants(lobbyId),
+            loadLobbyMessages(lobbyId)
         ]);
     }
-
-    // Use mock/placeholder data for now to show the layout
-    renderMessages([]);
 });
 
 async function loadProfile() {
@@ -58,13 +69,13 @@ async function loadLobbyDetails(lobbyId) {
         const lobby = await response.json();
         currentLobby = lobby;
 
-        document.getElementById('lobby-name').textContent = lobby.name;
+        document.getElementById('lobby-name').textContent = lobby.name || 'Untitled Lobby';
 
         const metaContainer = document.getElementById('lobby-meta-info');
         metaContainer.innerHTML = `
-            <div class="meta-item">Status: <strong>${lobby.status}</strong></div>
-            <div class="meta-item">Invite Code: <strong>${lobby.invite_code}</strong></div>
-            <div class="meta-item">Created by: <strong>@${lobby.creator.username}</strong></div>
+            <div class="meta-item">Status: <strong>${escapeHtml(lobby.status)}</strong></div>
+            <div class="meta-item">Invite Code: <strong>${escapeHtml(lobby.invite_code || '—')}</strong></div>
+            <div class="meta-item">Created by: <strong>@${escapeHtml(lobby.creator.username)}</strong></div>
         `;
 
     } catch (error) {
@@ -103,6 +114,22 @@ async function loadLobbyMembers(lobbyId) {
     }
 }
 
+async function loadLobbyMessages(lobbyId) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/lobbies/${lobbyId}/messages`, {
+            credentials: 'include'
+        });
+        if (!response.ok) throw new Error('Failed to load messages');
+
+        const messages = await response.json();
+        renderMessages(messages);
+    } catch (error) {
+        console.error(error);
+        document.getElementById('chat-messages').innerHTML =
+            '<div class="chat-system-message">Could not load messages.</div>';
+    }
+}
+
 function renderMembers(members) {
     const list = document.getElementById('members-list');
     document.getElementById('member-count').textContent = members.length;
@@ -121,12 +148,12 @@ function renderMembers(members) {
     list.innerHTML = members.map(member => {
         const user = member.user;
         const isCreator = user.id === currentLobby.created_by;
-        const firstLetter = user.username.charAt(0);
+        const firstLetter = escapeHtml(user.username.charAt(0));
 
         return `
             <li class="${isCreator ? 'member-creator' : ''}">
                 <div class="member-avatar">${firstLetter}</div>
-                <span class="member-name">${user.username}</span>
+                <span class="member-name">${escapeHtml(user.username)}</span>
             </li>
         `;
     }).join('');
@@ -146,7 +173,7 @@ function renderRestaurants(options) {
         return;
     }
 
-    const fallbackHTML = `<div class=&quot;no-image&quot;>📷 No photo</div>`;
+    const fallbackHTML = '<div class="no-image">📷 No photo</div>';
 
     container.innerHTML = options.map(option => {
         const restaurant = option.restaurant;
@@ -161,12 +188,14 @@ function renderRestaurants(options) {
         return `
             <div class="restaurant-card">
                 <div class="restaurant-image">
-                    ${restaurant.photo_url ? `<img src="${restaurant.photo_url}" alt="${restaurant.name}" onerror="this.parentElement.innerHTML='${fallbackHTML}'"/>` : fallbackHTML}
+                    ${restaurant.photo_url
+                        ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}"/>`
+                        : fallbackHTML}
                 </div>
                 <div class="restaurant-info">
-                    <div class="restaurant-name">${restaurant.name}</div>
+                    <div class="restaurant-name">${escapeHtml(restaurant.name)}</div>
                     <div class="restaurant-meta">${ratingHTML} ${priceHTML}</div>
-                    <div class="restaurant-address">${restaurant.address}</div>
+                    <div class="restaurant-address">${escapeHtml(restaurant.address || '')}</div>
                     <div class="action-buttons">
                         <button class="btn btn-primary" onclick="alert('Voting coming soon!')">Vote</button>
                     </div>
@@ -174,9 +203,74 @@ function renderRestaurants(options) {
             </div>
         `;
     }).join('');
+
+    // Swap in the placeholder if a cached photo URL has gone stale. Wired up here
+    // rather than with an inline onerror so the fallback markup doesn't have to be
+    // escaped into an HTML attribute.
+    container.querySelectorAll('.restaurant-image img').forEach(img => {
+        img.addEventListener('error', () => {
+            img.parentElement.innerHTML = fallbackHTML;
+        });
+    });
 }
 
 function renderMessages(messages) {
     const container = document.getElementById('chat-messages');
-    container.innerHTML = `<div class="chat-system-message">Be the first to send a message!</div>`;
+
+    if (!messages || messages.length === 0) {
+        container.innerHTML = `<div class="chat-system-message">Be the first to send a message!</div>`;
+        return;
+    }
+
+    container.innerHTML = messages.map(message => {
+        const isOwn = currentUser && message.user_id === currentUser.id;
+        const author = message.user ? message.user.username : 'Unknown';
+        const time = new Date(message.sent_at).toLocaleTimeString([], {
+            hour: 'numeric',
+            minute: '2-digit'
+        });
+
+        return `
+            <div class="chat-message ${isOwn ? 'own-message' : ''}">
+                <div class="chat-message-meta">
+                    <span class="chat-author">@${escapeHtml(author)}</span>
+                    <span class="chat-time">${escapeHtml(time)}</span>
+                </div>
+                <div class="chat-bubble">${escapeHtml(message.content || '')}</div>
+            </div>
+        `;
+    }).join('');
+
+    // Newest messages are at the bottom, so land the user there.
+    container.scrollTop = container.scrollHeight;
 }
+
+// --- Chat ---
+
+document.getElementById('chat-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const input = document.getElementById('chat-input');
+    const content = input.value.trim();
+    if (!content || !currentLobbyId) return;
+
+    // Clear straight away so the box feels responsive; restore it if the send fails.
+    input.value = '';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/lobbies/${currentLobbyId}/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content }),
+            credentials: 'include'
+        });
+
+        if (!response.ok) throw new Error('Failed to send message');
+
+        await loadLobbyMessages(currentLobbyId);
+    } catch (error) {
+        console.error(error);
+        input.value = content;
+        alert('Could not send your message. Please try again.');
+    }
+});
