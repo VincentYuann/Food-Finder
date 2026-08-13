@@ -129,7 +129,7 @@ export const logoutUser = async (req, res) => {
 
 export const getUserProfile = async (req, res) => {
     try {
-        const userId = parseInt(req.user.id);
+        const userId = req.user.id; // already a Number, normalized by verifyJWT
         const user = await prisma.user.findUnique({
             where: { id: userId },
             select: {
@@ -153,7 +153,7 @@ export const getUserProfile = async (req, res) => {
 
 export const updateUserProfile = async (req, res) => {
     try {
-        const userId = parseInt(req.user.id);
+        const userId = req.user.id; // already a Number, normalized by verifyJWT
         const { username, email, profile_image_url } = req.body;
 
         const updatedUser = await prisma.user.update({
@@ -171,7 +171,7 @@ export const updateUserProfile = async (req, res) => {
 
 export const deleteUser = async (req, res) => {
     try {
-        const userId = parseInt(req.user.id);
+        const userId = req.user.id; // already a Number, normalized by verifyJWT
         await prisma.user.delete({ where: { id: userId } });
 
         res.status(200).json({ message: 'User deleted successfully.' });
@@ -187,7 +187,7 @@ export const deleteUser = async (req, res) => {
 
 export const getSavedRestaurants = async (req, res) => {
     try {
-        const userId = parseInt(req.user.id);
+        const userId = req.user.id; // already a Number, normalized by verifyJWT
         const saved = await prisma.savedRestaurant.findMany({
             where: { user_id: userId },
             include: { restaurant: true }, // Joins the actual restaurant data
@@ -203,8 +203,8 @@ export const getSavedRestaurants = async (req, res) => {
 
 export const addSavedRestaurant = async (req, res) => {
     try {
-        const userId = parseInt(req.user.id);
-        const restaurantId = parseInt(req.body.restaurant_id);
+        const userId = req.user.id; // already a Number, normalized by verifyJWT
+        const restaurantId = parseInt(req.body.restaurant_id, 10);
 
         if (!restaurantId) {
             return res.status(400).json({ error: 'Restaurant ID is required.' });
@@ -236,8 +236,8 @@ export const addSavedRestaurant = async (req, res) => {
 
 export const removeSavedRestaurant = async (req, res) => {
     try {
-        const userId = parseInt(req.user.id);
-        const restaurantId = parseInt(req.params.restaurantId);
+        const userId = req.user.id; // already a Number, normalized by verifyJWT
+        const restaurantId = parseInt(req.params.restaurantId, 10);
 
         await prisma.savedRestaurant.delete({
             where: {
@@ -262,7 +262,7 @@ export const removeSavedRestaurant = async (req, res) => {
 
 export const getUserLobbies = async (req, res) => {
     try {
-        const userId = parseInt(req.user.id);
+        const userId = req.user.id; // already a Number, normalized by verifyJWT
         const memberships = await prisma.lobbyMember.findMany({
             where: { user_id: userId },
             include: {

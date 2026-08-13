@@ -1,83 +1,50 @@
-const API_BASE_URL = 'http://localhost:5000';
+// Lobby page: details, members, shortlisted restaurants and chat for one lobby.
+// Depends on api.js (API_BASE_URL, apiFetch, errorFrom, escapeHtml, redirectToLogin).
 
-// State
 let currentLobby = null;
-let currentUser = null; // We'll need this to know who is who
+let currentUser = null;
 let currentLobbyId = null;
 
-// Lobby names, usernames and restaurant names all come from other users,
-// so anything interpolated into innerHTML has to be escaped first.
-function escapeHtml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, (char) => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#39;'
-    }[char]));
+// Lists longer than this scroll inside their panel instead of growing the page.
+const SCROLL_THRESHOLD = 10;
+
+const NO_PHOTO_HTML = '<div class="no-image">📷 No photo</div>';
+
+function setScrollable(container, itemCount) {
+    container.classList.toggle('scrollable-list', itemCount > SCROLL_THRESHOLD);
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-    const lobbyId = new URLSearchParams(window.location.search).get('id');
-    if (!lobbyId) {
-        window.location.replace('/index.html');
-        return;
-    }
-    currentLobbyId = lobbyId;
+function placeholder(text, color) {
+    return `<p style="grid-column: 1 / -1; text-align: center; color: ${color};">${text}</p>`;
+}
 
-    // We need to know who the current user is to render chat correctly and check permissions
-    await loadProfile();
-
-    // Load lobby details first, as other calls depend on it
-    await loadLobbyDetails(lobbyId);
-
-    // Once details are loaded, fetch other data in parallel
-    if (currentLobby) {
-        await Promise.all([
-            loadLobbyMembers(lobbyId),
-            loadLobbyRestaurants(lobbyId),
-            loadLobbyMessages(lobbyId)
-        ]);
-    }
-});
+// ==========================================
+// LOADING
+// ==========================================
 
 async function loadProfile() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/users/profile`, {
-            method: 'GET',
-            credentials: 'include'
-        });
+        const response = await apiFetch('/api/users/profile');
         if (!response.ok) throw new Error('Not authenticated');
+
         currentUser = await response.json();
     } catch (error) {
         console.error('Failed to load profile', error);
-        // If profile fails, user is not logged in, so redirect.
-        window.location.replace('/login.html');
+        redirectToLogin();
     }
 }
 
-async function loadLobbyDetails(lobbyId) {
+async function loadLobbyDetails() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/lobbies/${lobbyId}`, {
-            credentials: 'include'
-        });
+        const response = await apiFetch(`/api/lobbies/${currentLobbyId}`);
+
+        // Non-members get a 403 and people with a stale link get a 404.
         if (!response.ok) {
-            // If the user is not a member, the API will return 403/404. Redirect them.
             throw new Error('Failed to load lobby details or you are not a member.');
         }
 
-        const lobby = await response.json();
-        currentLobby = lobby;
-
-        document.getElementById('lobby-name').textContent = lobby.name || 'Untitled Lobby';
-
-        const metaContainer = document.getElementById('lobby-meta-info');
-        metaContainer.innerHTML = `
-            <div class="meta-item">Status: <strong>${escapeHtml(lobby.status)}</strong></div>
-            <div class="meta-item">Invite Code: <strong>${escapeHtml(lobby.invite_code || '—')}</strong></div>
-            <div class="meta-item">Created by: <strong>@${escapeHtml(lobby.creator.username)}</strong></div>
-        `;
-
+        currentLobby = await response.json();
+        renderLobbyHeader(currentLobby);
     } catch (error) {
         console.error(error);
         alert(error.message);
@@ -85,44 +52,37 @@ async function loadLobbyDetails(lobbyId) {
     }
 }
 
-async function loadLobbyRestaurants(lobbyId) {
+async function loadLobbyMembers() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/lobbies/${lobbyId}/restaurants`, {
-            credentials: 'include'
-        });
-        if (!response.ok) throw new Error('Failed to load lobby restaurants');
-        const restaurantOptions = await response.json();
-        renderRestaurants(restaurantOptions);
-    } catch (error) {
-        console.error(error);
-        document.getElementById('lobby-restaurants-list').innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: #d9534f;">Could not load restaurants.</p>`;
-    }
-}
-
-async function loadLobbyMembers(lobbyId) {
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/lobbies/${lobbyId}/members`, {
-            credentials: 'include'
-        });
+        const response = await apiFetch(`/api/lobbies/${currentLobbyId}/members`);
         if (!response.ok) throw new Error('Failed to load members');
 
-        const members = await response.json();
-        renderMembers(members);
+        renderMembers(await response.json());
     } catch (error) {
         console.error(error);
         document.getElementById('members-list').innerHTML = '<li>Error loading members.</li>';
     }
 }
 
-async function loadLobbyMessages(lobbyId) {
+async function loadLobbyRestaurants() {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/lobbies/${lobbyId}/messages`, {
-            credentials: 'include'
-        });
+        const response = await apiFetch(`/api/lobbies/${currentLobbyId}/restaurants`);
+        if (!response.ok) throw new Error('Failed to load lobby restaurants');
+
+        renderRestaurants(await response.json());
+    } catch (error) {
+        console.error(error);
+        document.getElementById('lobby-restaurants-list').innerHTML =
+            placeholder('Could not load restaurants.', '#d9534f');
+    }
+}
+
+async function loadLobbyMessages() {
+    try {
+        const response = await apiFetch(`/api/lobbies/${currentLobbyId}/messages`);
         if (!response.ok) throw new Error('Failed to load messages');
 
-        const messages = await response.json();
-        renderMessages(messages);
+        renderMessages(await response.json());
     } catch (error) {
         console.error(error);
         document.getElementById('chat-messages').innerHTML =
@@ -130,86 +90,93 @@ async function loadLobbyMessages(lobbyId) {
     }
 }
 
+// ==========================================
+// RENDERING
+// ==========================================
+
+function renderLobbyHeader(lobby) {
+    document.getElementById('lobby-name').textContent = lobby.name || 'Untitled Lobby';
+
+    document.getElementById('lobby-meta-info').innerHTML = `
+        <div class="meta-item">Status: <strong>${escapeHtml(lobby.status)}</strong></div>
+        <div class="meta-item">Invite Code: <strong>${escapeHtml(lobby.invite_code || '—')}</strong></div>
+        <div class="meta-item">Created by: <strong>@${escapeHtml(lobby.creator.username)}</strong></div>
+    `;
+}
+
 function renderMembers(members) {
     const list = document.getElementById('members-list');
     document.getElementById('member-count').textContent = members.length;
+    setScrollable(list, members.length);
 
-    if (members.length > 10) {
-        list.classList.add('scrollable-list');
-    } else {
-        list.classList.remove('scrollable-list');
-    }
-
-    if (!members || members.length === 0) {
+    if (members.length === 0) {
         list.innerHTML = '<li>No members found.</li>';
         return;
     }
 
-    list.innerHTML = members.map(member => {
-        const user = member.user;
+    list.innerHTML = members.map(({ user }) => {
         const isCreator = user.id === currentLobby.created_by;
-        const firstLetter = escapeHtml(user.username.charAt(0));
 
         return `
             <li class="${isCreator ? 'member-creator' : ''}">
-                <div class="member-avatar">${firstLetter}</div>
+                <div class="member-avatar">${escapeHtml(user.username.charAt(0))}</div>
                 <span class="member-name">${escapeHtml(user.username)}</span>
             </li>
         `;
     }).join('');
 }
 
+function restaurantCard(option) {
+    const { restaurant } = option;
+
+    const rating = restaurant.rating
+        ? `<div class="rating">
+               <span class="stars">★</span>
+               <span>${parseFloat(restaurant.rating).toFixed(1)}</span>
+           </div>`
+        : '';
+    const price = restaurant.price_level
+        ? `<div class="price-level">${'$'.repeat(restaurant.price_level)}</div>`
+        : '';
+    const image = restaurant.photo_url
+        ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}"/>`
+        : NO_PHOTO_HTML;
+
+    return `
+        <div class="restaurant-card">
+            <div class="restaurant-image">${image}</div>
+            <div class="restaurant-info">
+                <div class="restaurant-name">${escapeHtml(restaurant.name)}</div>
+                <div class="restaurant-meta">${rating} ${price}</div>
+                <div class="restaurant-address">${escapeHtml(restaurant.address || '')}</div>
+                <div class="action-buttons">
+                    <button type="button" class="btn btn-primary" data-action="vote">Vote</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 function renderRestaurants(options) {
     const container = document.getElementById('lobby-restaurants-list');
+    setScrollable(container, options.length);
 
-    if (options.length > 10) {
-        container.classList.add('scrollable-list');
-    } else {
-        container.classList.remove('scrollable-list');
-    }
-
-    if (!options || options.length === 0) {
-        container.innerHTML = `<p style="grid-column: 1 / -1; text-align: center; color: #777;">No restaurants have been added yet. Use the "Add from Search" button!</p>`;
+    if (options.length === 0) {
+        container.innerHTML = placeholder(
+            'No restaurants have been added yet. Use the "Add from Search" button!',
+            '#777'
+        );
         return;
     }
 
-    const fallbackHTML = '<div class="no-image">📷 No photo</div>';
+    container.innerHTML = options.map(restaurantCard).join('');
 
-    container.innerHTML = options.map(option => {
-        const restaurant = option.restaurant;
-        const ratingHTML = restaurant.rating ? `
-            <div class="rating">
-                <span class="stars">★</span>
-                <span>${parseFloat(restaurant.rating).toFixed(1)}</span>
-            </div>
-        ` : '';
-        const priceHTML = restaurant.price_level ? `<div class="price-level">${'$'.repeat(restaurant.price_level)}</div>` : '';
-
-        return `
-            <div class="restaurant-card">
-                <div class="restaurant-image">
-                    ${restaurant.photo_url
-                        ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}"/>`
-                        : fallbackHTML}
-                </div>
-                <div class="restaurant-info">
-                    <div class="restaurant-name">${escapeHtml(restaurant.name)}</div>
-                    <div class="restaurant-meta">${ratingHTML} ${priceHTML}</div>
-                    <div class="restaurant-address">${escapeHtml(restaurant.address || '')}</div>
-                    <div class="action-buttons">
-                        <button class="btn btn-primary" onclick="alert('Voting coming soon!')">Vote</button>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    // Swap in the placeholder if a cached photo URL has gone stale. Wired up here
-    // rather than with an inline onerror so the fallback markup doesn't have to be
-    // escaped into an HTML attribute.
-    container.querySelectorAll('.restaurant-image img').forEach(img => {
+    // Swap in the placeholder if a cached photo URL has gone stale. Done here
+    // rather than with an inline onerror so the fallback markup doesn't have to
+    // survive being escaped into an HTML attribute.
+    container.querySelectorAll('.restaurant-image img').forEach((img) => {
         img.addEventListener('error', () => {
-            img.parentElement.innerHTML = fallbackHTML;
+            img.parentElement.innerHTML = NO_PHOTO_HTML;
         });
     });
 }
@@ -217,12 +184,12 @@ function renderRestaurants(options) {
 function renderMessages(messages) {
     const container = document.getElementById('chat-messages');
 
-    if (!messages || messages.length === 0) {
-        container.innerHTML = `<div class="chat-system-message">Be the first to send a message!</div>`;
+    if (messages.length === 0) {
+        container.innerHTML = '<div class="chat-system-message">Be the first to send a message!</div>';
         return;
     }
 
-    container.innerHTML = messages.map(message => {
+    container.innerHTML = messages.map((message) => {
         const isOwn = currentUser && message.user_id === currentUser.id;
         const author = message.user ? message.user.username : 'Unknown';
         const time = new Date(message.sent_at).toLocaleTimeString([], {
@@ -241,36 +208,67 @@ function renderMessages(messages) {
         `;
     }).join('');
 
-    // Newest messages are at the bottom, so land the user there.
+    // Newest messages sit at the bottom, so land the user there.
     container.scrollTop = container.scrollHeight;
 }
 
-// --- Chat ---
+// ==========================================
+// CHAT
+// ==========================================
 
-document.getElementById('chat-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
+async function sendMessage(event) {
+    event.preventDefault();
 
     const input = document.getElementById('chat-input');
     const content = input.value.trim();
-    if (!content || !currentLobbyId) return;
+    if (!content) return;
 
-    // Clear straight away so the box feels responsive; restore it if the send fails.
+    // Clear straight away so the box feels responsive; put it back if the send fails.
     input.value = '';
 
     try {
-        const response = await fetch(`${API_BASE_URL}/api/lobbies/${currentLobbyId}/messages`, {
+        const response = await apiFetch(`/api/lobbies/${currentLobbyId}/messages`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content }),
-            credentials: 'include'
+            body: { content }
         });
-
         if (!response.ok) throw new Error('Failed to send message');
 
-        await loadLobbyMessages(currentLobbyId);
+        await loadLobbyMessages();
     } catch (error) {
         console.error(error);
         input.value = content;
         alert('Could not send your message. Please try again.');
+    }
+}
+
+// ==========================================
+// SETUP
+// ==========================================
+
+document.addEventListener('DOMContentLoaded', async () => {
+    currentLobbyId = new URLSearchParams(window.location.search).get('id');
+    if (!currentLobbyId) {
+        window.location.replace('/index.html');
+        return;
+    }
+
+    document.getElementById('chat-form').addEventListener('submit', sendMessage);
+    document.getElementById('lobby-restaurants-list').addEventListener('click', (event) => {
+        if (event.target.closest('button[data-action="vote"]')) {
+            alert('Voting coming soon!');
+        }
+    });
+
+    // Who the user is, then the lobby itself — the member list needs both to
+    // work out which member is the host.
+    await loadProfile();
+    await loadLobbyDetails();
+
+    if (currentLobby) {
+        await Promise.all([
+            loadLobbyMembers(),
+            loadLobbyRestaurants(),
+            loadLobbyMessages()
+        ]);
     }
 });
