@@ -5,6 +5,11 @@ let currentLobby = null;
 let currentUser = null;
 let currentLobbyId = null;
 
+// Socket.IO connection for live chat, and whether it has actually joined this
+// lobby's room. Sending falls back to the REST endpoint while it hasn't.
+let socket = null;
+let chatConnected = false;
+
 // Lists longer than this scroll inside their panel instead of growing the page.
 const SCROLL_THRESHOLD = 10;
 
@@ -181,6 +186,27 @@ function renderRestaurants(options) {
     });
 }
 
+function messageHtml(message) {
+    const isOwn = currentUser && message.user_id === currentUser.id;
+    const author = message.user ? message.user.username : 'Unknown';
+    const time = new Date(message.sent_at).toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit'
+    });
+
+    // The id is on the element so a live broadcast can tell whether the message
+    // it just received is already on screen.
+    return `
+        <div class="chat-message ${isOwn ? 'own-message' : ''}" data-message-id="${escapeHtml(message.id)}">
+            <div class="chat-message-meta">
+                <span class="chat-author">@${escapeHtml(author)}</span>
+                <span class="chat-time">${escapeHtml(time)}</span>
+            </div>
+            <div class="chat-bubble">${escapeHtml(message.content || '')}</div>
+        </div>
+    `;
+}
+
 function renderMessages(messages) {
     const container = document.getElementById('chat-messages');
 
@@ -189,32 +215,117 @@ function renderMessages(messages) {
         return;
     }
 
-    container.innerHTML = messages.map((message) => {
-        const isOwn = currentUser && message.user_id === currentUser.id;
-        const author = message.user ? message.user.username : 'Unknown';
-        const time = new Date(message.sent_at).toLocaleTimeString([], {
-            hour: 'numeric',
-            minute: '2-digit'
-        });
-
-        return `
-            <div class="chat-message ${isOwn ? 'own-message' : ''}">
-                <div class="chat-message-meta">
-                    <span class="chat-author">@${escapeHtml(author)}</span>
-                    <span class="chat-time">${escapeHtml(time)}</span>
-                </div>
-                <div class="chat-bubble">${escapeHtml(message.content || '')}</div>
-            </div>
-        `;
-    }).join('');
+    container.innerHTML = messages.map(messageHtml).join('');
 
     // Newest messages sit at the bottom, so land the user there.
     container.scrollTop = container.scrollHeight;
 }
 
+/** Adds a single message pushed over the socket to the bottom of the log. */
+function appendMessage(message) {
+    const container = document.getElementById('chat-messages');
+
+    // A broadcast can race the initial fetch, and every reconnect refetches the
+    // whole history — so drop anything that is already rendered.
+    if (container.querySelector(`[data-message-id="${message.id}"]`)) return;
+
+    // Clears "Be the first to send a message!" (and any error notice).
+    container.querySelectorAll('.chat-system-message').forEach((el) => el.remove());
+
+    // Only follow the conversation if the reader is already at the bottom.
+    // Yanking someone away from the history they're scrolled up reading is
+    // more annoying than a message they have to scroll down for.
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
+
+    container.insertAdjacentHTML('beforeend', messageHtml(message));
+
+    if (isAtBottom) container.scrollTop = container.scrollHeight;
+}
+
 // ==========================================
-// CHAT
+// LIVE CHAT (Socket.IO)
 // ==========================================
+
+function setChatStatus(state, text) {
+    const badge = document.getElementById('chat-status');
+    badge.className = `chat-status chat-status-${state}`;
+    badge.textContent = text;
+}
+
+/**
+ * The Socket.IO client is served by the API itself, so the host lives in
+ * API_BASE_URL only — no second URL hardcoded into the markup to forget when
+ * this gets deployed.
+ */
+function loadSocketIoClient() {
+    return new Promise((resolve, reject) => {
+        if (window.io) return resolve();
+
+        const script = document.createElement('script');
+        script.src = `${API_BASE_URL}/socket.io/socket.io.js`;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Could not load the live chat client.'));
+        document.head.appendChild(script);
+    });
+}
+
+async function connectChat() {
+    try {
+        await loadSocketIoClient();
+    } catch (error) {
+        // Chat still works over REST, it just won't update on its own.
+        console.error(error);
+        setChatStatus('offline', 'Offline');
+        return;
+    }
+
+    // The handshake authenticates with the same HttpOnly JWT cookie the REST
+    // calls use, which is why credentials have to be sent with it.
+    socket = io(API_BASE_URL, { withCredentials: true });
+
+    socket.on('connect', () => {
+        socket.emit('lobby:join', currentLobbyId, (response) => {
+            if (!response?.ok) {
+                console.error('Could not join the lobby chat room:', response?.error);
+                setChatStatus('offline', 'Offline');
+                return;
+            }
+
+            chatConnected = true;
+            setChatStatus('online', 'Live');
+
+            // Refetch on every connect, not just the first: this also covers
+            // whatever was said while a dropped connection was reconnecting.
+            loadLobbyMessages();
+        });
+    });
+
+    socket.on('chat:message', appendMessage);
+
+    socket.on('disconnect', () => {
+        chatConnected = false;
+        setChatStatus('connecting', 'Reconnecting…');
+    });
+
+    socket.on('connect_error', (error) => {
+        chatConnected = false;
+        console.error('Live chat connection failed:', error.message);
+        setChatStatus('offline', 'Offline');
+    });
+}
+
+/** Resolves once the server has stored the message, rejects with its reason. */
+function sendOverSocket(content) {
+    return new Promise((resolve, reject) => {
+        socket
+            .timeout(5000)
+            .emit('chat:send', { lobbyId: currentLobbyId, content }, (timeoutError, response) => {
+                if (timeoutError) return reject(new Error('The server did not respond. Please try again.'));
+                if (!response?.ok) return reject(new Error(response?.error || 'Failed to send message'));
+                resolve();
+            });
+    });
+}
 
 async function sendMessage(event) {
     event.preventDefault();
@@ -227,17 +338,25 @@ async function sendMessage(event) {
     input.value = '';
 
     try {
-        const response = await apiFetch(`/api/lobbies/${currentLobbyId}/messages`, {
-            method: 'POST',
-            body: { content }
-        });
-        if (!response.ok) throw new Error('Failed to send message');
+        if (chatConnected) {
+            // The server echoes the message back to the whole room, this tab
+            // included, so there's nothing to render here.
+            await sendOverSocket(content);
+        } else {
+            // No live socket — post it the old way so chat still works when
+            // WebSockets are blocked or the connection is still coming up.
+            const response = await apiFetch(`/api/lobbies/${currentLobbyId}/messages`, {
+                method: 'POST',
+                body: { content }
+            });
+            if (!response.ok) throw new Error(await errorFrom(response, 'Failed to send message'));
 
-        await loadLobbyMessages();
+            await loadLobbyMessages();
+        }
     } catch (error) {
         console.error(error);
         input.value = content;
-        alert('Could not send your message. Please try again.');
+        alert(error.message || 'Could not send your message. Please try again.');
     }
 }
 
@@ -270,5 +389,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadLobbyRestaurants(),
             loadLobbyMessages()
         ]);
+
+        // Only after the lobby loaded — a non-member would just be rejected by
+        // the room join anyway, and they've already been bounced by now.
+        connectChat();
     }
 });

@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '../config/jwtConfig.js';
 
 export const verifyJWT = (req, res, next) => {
     const token = req.cookies.token;
@@ -9,7 +10,7 @@ export const verifyJWT = (req, res, next) => {
     }
 
     try {
-        const decodedUser = jwt.verify(token, process.env.JWT_SECRET || 'TEmporarYYY_secret_key_here=2818391023809129300$*()!*)(#KJDSKLJDALSKJ');
+        const decodedUser = jwt.verify(token, JWT_SECRET);
 
         // Attach decoded payload to request object (in this case, it's { id: user.id }).
         // Normalize id to a Number so downstream handlers can use req.user.id directly.

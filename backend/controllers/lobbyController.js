@@ -1,12 +1,7 @@
 import { randomInt } from 'crypto';
 import prisma from '../config/dbConfig.js';
-
-// Only ever expose these user fields to other lobby members — never password_hash.
-const publicUserSelect = {
-    id: true,
-    username: true,
-    profile_image_url: true,
-};
+import publicUserSelect from '../utils/publicUserSelect.js';
+import { createLobbyMessage, MessageValidationError } from '../services/lobbyChatService.js';
 
 // Ambiguous characters (I, O, 0, 1) are left out so codes are easy to read aloud.
 const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -413,25 +408,28 @@ export const getLobbyMessages = async (req, res) => {
     }
 };
 
+/**
+ * POST /api/lobbies/:id/messages
+ * The fallback path for clients whose WebSocket is down — it goes through the
+ * same service as chat:send, so members with a live socket still see the
+ * message appear instantly.
+ */
 export const sendLobbyMessage = async (req, res) => {
     const { content, imageUrl } = req.body;
 
-    if (!content && !imageUrl) {
-        return res.status(400).json({ error: 'A message needs content or an image.' });
-    }
-
     try {
-        const message = await prisma.message.create({
-            data: {
-                lobby_id: req.lobbyId,
-                user_id: req.user.id,
-                content: content ?? null,
-                image_url: imageUrl ?? null,
-            }
+        const message = await createLobbyMessage({
+            lobbyId: req.lobbyId,
+            userId: req.user.id,
+            content,
+            imageUrl,
         });
 
         res.status(201).json(message);
     } catch (error) {
+        if (error instanceof MessageValidationError) {
+            return res.status(400).json({ error: error.message });
+        }
         console.error('Error sending lobby message:', error);
         res.status(500).json({ error: 'Internal server error.' });
     }
