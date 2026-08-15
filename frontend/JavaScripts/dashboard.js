@@ -1,5 +1,8 @@
 // Dashboard: the signed-in user's profile, saved restaurants and lobbies.
 // Depends on api.js (API_BASE_URL, apiFetch, errorFrom, escapeHtml, redirectToLogin).
+import {
+    apiFetch, errorFrom, escapeHtml, redirectToLogin
+} from './api.js';
 
 // The signed-in user, needed to tell whether they host a given lobby.
 let currentUser = null;

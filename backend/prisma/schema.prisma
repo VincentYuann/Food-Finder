@@ -100,20 +100,19 @@ model Lobby {
 // ============================
 // LOBBY MEMBERS
 // ============================
-@@
- model LobbyMember {
-   id        Int      @id @default(autoincrement())
-   lobby_id  Int
-   user_id   Int
-   ready     Boolean  @default(false)
-   joined_at DateTime @default(now())
- 
-   lobby Lobby @relation(fields: [lobby_id], references: [id], onDelete: Cascade)
-   user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
- 
-   @@unique([lobby_id, user_id])
-   @@map("lobby_members")
- }
+model LobbyMember {
+  id        Int      @id @default(autoincrement())
+  lobby_id  Int
+  user_id   Int
+  ready     Boolean  @default(false)
+  joined_at DateTime @default(now())
+
+  lobby Lobby @relation(fields: [lobby_id], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([lobby_id, user_id])
+  @@map("lobby_members")
+}
 
 // ============================
 // LOBBY RESTAURANT OPTIONS (the shortlist to vote on)

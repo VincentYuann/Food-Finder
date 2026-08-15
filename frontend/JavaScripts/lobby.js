@@ -1,5 +1,10 @@
+/* global io */
+
 // Lobby page: details, members, shortlisted restaurants and chat for one lobby.
 // Depends on api.js (API_BASE_URL, apiFetch, errorFrom, escapeHtml, redirectToLogin).
+import {
+    API_BASE_URL, apiFetch, errorFrom, escapeHtml, redirectToLogin
+} from './api.js';
 
 let currentLobby = null;
 let currentUser = null;

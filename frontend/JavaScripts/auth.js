@@ -1,5 +1,6 @@
 // Login / registration page.
 // Depends on api.js (API_BASE_URL, apiFetch, errorFrom).
+import { apiFetch, errorFrom } from './api.js';
 
 function showError(message, isSuccess = false) {
     const authError = document.getElementById('auth-error');

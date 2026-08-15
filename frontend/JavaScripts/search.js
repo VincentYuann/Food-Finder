@@ -1,5 +1,8 @@
 // Restaurant search: nearby (needs geolocation) or by name.
 // Depends on api.js (API_BASE_URL, apiFetch, escapeHtml).
+import {
+    apiFetch, escapeHtml
+} from './api.js';
 
 let currentLocation = null;
 let searchResults = [];
