@@ -101,11 +101,13 @@ async function loadLobbyMessages() {
 
 function renderLobbyHeader(lobby) {
     document.getElementById('lobby-name').textContent = lobby.name || 'Untitled Lobby';
+    const isCreator = currentUser && lobby.creator && currentUser.id === lobby.creator.id;
 
     document.getElementById('lobby-meta-info').innerHTML = `
         <div class="meta-item">Status: <strong>${escapeHtml(lobby.status)}</strong></div>
         <div class="meta-item">Invite Code: <strong>${escapeHtml(lobby.invite_code || '—')}</strong></div>
         <div class="meta-item">Created by: <strong>@${escapeHtml(lobby.creator.username)}</strong></div>
+        ${isCreator ? `<div class="meta-item"><button id="close-lobby-btn" class="btn btn-warning" disabled>Close Lobby</button></div>` : ''}
     `;
 }
 
@@ -119,17 +121,49 @@ function renderMembers(members) {
         return;
     }
 
-    list.innerHTML = members.map(({ user }) => {
+    // members is an array of LobbyMember { id, lobby_id, user_id, joined_at, ready, user: { ... } }
+    list.innerHTML = members.map((m) => {
+        const user = m.user;
         const isCreator = user.id === currentLobby.created_by;
+        const isCurrent = currentUser && user.id === currentUser.id;
+        const readyBadge = m.ready
+            ? `<span class="ready-badge">Ready</span>`
+            : `<span class="not-ready-badge">Not ready</span>`;
+
+        // show a toggle button to mark ready/unready
+        const actionButton = isCurrent && !isCreator
+            ? `<button type="button" class="btn btn-secondary" data-action="toggle-ready" data-ready="${m.ready}">${m.ready ? 'Unready' : 'Ready'}</button>`
+            : '';
+
+        const creatorClass = isCreator ? 'member-creator' : '';
 
         return `
-            <li class="${isCreator ? 'member-creator' : ''}">
+            <li class="${creatorClass}" data-user-id="${user.id}" data-ready="${m.ready}">
                 <div class="member-avatar">${escapeHtml(user.username.charAt(0))}</div>
-                <span class="member-name">${escapeHtml(user.username)}</span>
+                <span class="member-name">${escapeHtml(user.username)}${isCreator ? ' (host)' : ''}</span>
+                <span class="member-ready">${readyBadge}</span>
+                ${actionButton}
             </li>
         `;
     }).join('');
+
+    updateCloseButtonState(members);
 }
+
+function updateCloseButtonState(members) {
+    const btn = document.getElementById('close-lobby-btn');
+    if (!btn) return;
+
+    const totalMembers = members.length;
+    const readyCount = members.filter((m) => m.ready).length;
+    const required = Math.max(0, totalMembers - 1);
+    const canClose = readyCount >= required;
+
+    btn.disabled = !canClose;
+    btn.textContent = canClose ? `Close Lobby (${readyCount}/${totalMembers} ready)` : `Close Lobby (${readyCount}/${totalMembers} ready)`;
+}
+
+
 
 function restaurantCard(option) {
     const { restaurant } = option;
