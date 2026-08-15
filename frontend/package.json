@@ -4,5 +4,8 @@
     "eslint": "^10.8.0",
     "globals": "^17.9.0"
   },
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  }
 }

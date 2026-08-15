@@ -17,7 +17,7 @@ const __dirname = path.dirname(__filename);
 
 app.use(cors({
   origin: getCorsOrigin(),
-  credentials: true // Crucial for your JWT cookies to work
+  credentials: true
 }));
 
 app.use(express.static(path.join(__dirname, '../frontend')));

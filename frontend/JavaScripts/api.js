@@ -3,7 +3,9 @@
 // tags, not <script type="module">.
 
 // Change this manually to 'https://api.yourdomain.com' only when deploying to the cloud.
-const API_BASE_URL = 'http://localhost:5000';
+import 'dotenv/config';
+const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
+console.log(`Using API_BASE_URL=${API_BASE_URL}`);
 
 /**
  * fetch() against the API with the session cookie attached.
