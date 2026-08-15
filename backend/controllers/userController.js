@@ -6,6 +6,16 @@ import jwt from 'jsonwebtoken';
 // AUTHENTICATION
 // ==========================================
 
+const getCookieOptions = () => {
+    const isProduction = process.env.NODE_ENV === 'production';
+    return {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction ? 'none' : 'lax',
+        path: '/'
+    };
+};
+
 export const registerUser = async (req, res) => {
     try {
         const { email, password, username } = req.body;
@@ -89,12 +99,9 @@ export const loginUser = async (req, res) => {
             { expiresIn: '1d' }
         );
 
-        const isProduction = process.env.NODE_ENV === 'production';
         res.cookie('token', token, {
-            httpOnly: true,
-            secure: isProduction,
-            sameSite: isProduction ? 'none' : 'strict',
-            maxAge: 1 * 24 * 60 * 60 * 1000
+            ...getCookieOptions(),
+            maxAge: 1 * 24 * 60 * 60 * 1000,
         });
 
         // Send success response (Notice: token is removed from this JSON payload)
@@ -115,11 +122,7 @@ export const loginUser = async (req, res) => {
 };
 
 export const logoutUser = async (req, res) => {
-    res.clearCookie('token', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-    });
+    res.clearCookie('token', getCookieOptions());
     res.status(200).json({ message: 'Logged out successfully.' });
 };
 
