@@ -163,7 +163,59 @@ function updateCloseButtonState(members) {
     btn.textContent = canClose ? `Close Lobby (${readyCount}/${totalMembers} ready)` : `Close Lobby (${readyCount}/${totalMembers} ready)`;
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('members-list').addEventListener('click', async (event) => {
+        const btn = event.target.closest('button[data-action="toggle-ready"]');
+        if (!btn) return;
+        const currentReady = btn.dataset.ready === 'true';
+        await toggleMyReady(!currentReady);
+    });
 
+    document.getElementById('lobby-meta-info').addEventListener('click', (event) => {
+        if (event.target && event.target.id === 'close-lobby-btn') {
+            closeLobby();
+        }
+    });
+});
+
+// toggle ready/unready
+async function toggleMyReady(newReady) {
+    try {
+        const response = await apiFetch(`/api/lobbies/${currentLobbyId}/members/ready`, {
+            method: 'PATCH',
+            body: { ready: newReady }
+        });
+        if (!response.ok) {
+            throw new Error(await errorFrom(response, 'Could not update ready state'));
+        }
+        // update close button
+        await loadLobbyMembers();
+    } catch (error) {
+        console.error('Failed to update ready state', error);
+        alert(error.message || 'Could not update ready state.');
+    }
+}
+
+// close lobby (for creators)
+async function closeLobby() {
+    if (!confirm('Close the lobby for everyone? This cannot be undone.')) return;
+
+    try {
+        const response = await apiFetch(`/api/lobbies/${currentLobbyId}`, {
+            method: 'PATCH',
+            body: { status: 'closed' }
+        });
+        if (!response.ok) {
+            throw new Error(await errorFrom(response, 'Could not close the lobby'));
+        }
+        // show new status
+        await loadLobbyDetails();
+        await loadLobbyMembers();
+    } catch (error) {
+        console.error('Failed to close lobby', error);
+        alert(error.message || 'Could not close the lobby.');
+    }
+}
 
 function restaurantCard(option) {
     const { restaurant } = option;
