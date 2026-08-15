@@ -184,6 +184,21 @@ export const updateLobby = async (req, res) => {
         if (!allowedStatuses.includes(status)) {
             return res.status(400).json({ error: `Status must be one of: ${allowedStatuses.join(', ')}.` });
         }
+        // ensure every other member is ready if creator is trying to close
+        if (status === 'closed') {
+            try {
+                const totalMembers = await prisma.lobbyMember.count({ where: { lobby_id: req.lobbyId } });
+                const readyCount = await prisma.lobbyMember.count({
+                    where: { lobby_id: req.lobbyId, ready: true }
+                });
+                if (totalMembers > 1 && readyCount < (totalMembers - 1)) {
+                    return res.status(400).json({ error: 'Cannot close lobby: not all other members are ready.' });
+                }
+            } catch (err) {
+                console.error('Error validating ready counts:', err);
+                return res.status(500).json({ error: 'Internal server error.' });
+            }
+        }
         data.status = status;
         data.closed_at = status === 'closed' ? new Date() : null;
     }
@@ -274,6 +289,34 @@ export const removeLobbyMember = async (req, res) => {
             return res.status(404).json({ error: 'That user is not a member of this lobby.' });
         }
         console.error('Error removing lobby member:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+/**
+ * PATCH /api/lobbies/:id/members/ready
+ * Body: { ready: boolean }
+ * Sets the current authenticated user's ready flag in this lobby.
+ */
+export const setMemberReady = async (req, res) => {
+    const requestedReady = !!req.body.ready; // coerce to boolean
+
+    try {
+        const updated = await prisma.lobbyMember.update({
+            where: {
+                lobby_id_user_id: { lobby_id: req.lobbyId, user_id: req.user.id }
+            },
+            data: { ready: requestedReady },
+            include: { user: { select: publicUserSelect } }
+        });
+
+        res.status(200).json(updated);
+    } catch (error) {
+        // P2025 = record to update does not exist
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Membership not found.' });
+        }
+        console.error('Error setting ready state:', error);
         res.status(500).json({ error: 'Internal server error.' });
     }
 };

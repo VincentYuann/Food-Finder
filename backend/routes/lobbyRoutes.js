@@ -22,6 +22,7 @@ router.delete('/:id', isLobbyCreator, lobbyController.deleteLobby);
 // Members
 router.get('/:id/members', isLobbyMember, lobbyController.getLobbyMembers);
 router.delete('/:id/members/:userId', isLobbyMember, lobbyController.removeLobbyMember);
+router.patch('/:id/members/ready', isLobbyMember, lobbyController.setMemberReady);
 
 // Restaurant options
 router.get('/:id/restaurants', isLobbyMember, lobbyController.getLobbyRestaurants);

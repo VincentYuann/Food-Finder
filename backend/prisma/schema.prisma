@@ -105,6 +105,7 @@ model LobbyMember {
   lobby_id  Int
   user_id   Int
   joined_at DateTime @default(now())
+  ready     Boolean  @default(false)
 
   lobby Lobby @relation(fields: [lobby_id], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [user_id], references: [id], onDelete: Cascade)

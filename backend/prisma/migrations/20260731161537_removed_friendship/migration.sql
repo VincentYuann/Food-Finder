@@ -17,7 +17,7 @@ ALTER TABLE "messages" DROP CONSTRAINT "messages_user_id_fkey";
 
 -- AlterTable
 ALTER TABLE "messages" DROP COLUMN "user_id",
-ADD COLUMN     "user_id" INTEGER[],
+ADD COLUMN     "user_id" INTEGER,
 ALTER COLUMN "content" SET NOT NULL;
 
 -- DropTable
