@@ -89,11 +89,11 @@ export const loginUser = async (req, res) => {
             { expiresIn: '1d' }
         );
 
-        // ADD THIS: Set the token in an HttpOnly cookie
+        const isProduction = process.env.NODE_ENV === 'production';
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production', // Deployment makes NODE_ENV true, and blocking requests if its only HTTP
-            sameSite: 'none',
+            secure: isProduction,
+            sameSite: isProduction ? 'none' : 'strict',
             maxAge: 1 * 24 * 60 * 60 * 1000
         });
 
