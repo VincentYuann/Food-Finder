@@ -2,6 +2,7 @@ import { randomInt } from 'crypto';
 import prisma from '../config/dbConfig.js';
 import publicUserSelect from '../utils/publicUserSelect.js';
 import { createLobbyMessage, MessageValidationError } from '../services/lobbyChatService.js';
+import { listLobbyMembers, broadcastLobbyMembers } from '../services/lobbyMemberService.js';
 
 // Ambiguous characters (I, O, 0, 1) are left out so codes are easy to read aloud.
 const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -128,6 +129,9 @@ export const joinLobbyByCode = async (req, res) => {
             create: { lobby_id: lobby.id, user_id: req.user.id },
         });
 
+        // Members already sitting in the lobby see the newcomer appear.
+        await broadcastLobbyMembers(lobby.id);
+
         res.status(200).json(lobby);
     } catch (error) {
         console.error('Error joining lobby:', error);
@@ -239,13 +243,7 @@ export const deleteLobby = async (req, res) => {
  */
 export const getLobbyMembers = async (req, res) => {
     try {
-        const members = await prisma.lobbyMember.findMany({
-            where: { lobby_id: req.lobbyId },
-            orderBy: { joined_at: 'asc' },
-            include: { user: { select: publicUserSelect } }
-        });
-
-        res.status(200).json(members);
+        res.status(200).json(await listLobbyMembers(req.lobbyId));
     } catch (error) {
         console.error('Error fetching lobby members:', error);
         res.status(500).json({ error: 'Internal server error.' });
@@ -282,6 +280,9 @@ export const removeLobbyMember = async (req, res) => {
                 lobby_id_user_id: { lobby_id: req.lobbyId, user_id: targetUserId }
             }
         });
+
+        await broadcastLobbyMembers(req.lobbyId);
+
         res.status(204).send();
     } catch (error) {
         // P2025 = record to delete does not exist
@@ -309,6 +310,10 @@ export const setMemberReady = async (req, res) => {
             data: { ready: requestedReady },
             include: { user: { select: publicUserSelect } }
         });
+
+        // Everyone's ready tally — and the host's Close Lobby button — updates
+        // without waiting for a refresh.
+        await broadcastLobbyMembers(req.lobbyId);
 
         res.status(200).json(updated);
     } catch (error) {

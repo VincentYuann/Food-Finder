@@ -10,10 +10,11 @@ let currentLobby = null;
 let currentUser = null;
 let currentLobbyId = null;
 
-// Socket.IO connection for live chat, and whether it has actually joined this
-// lobby's room. Sending falls back to the REST endpoint while it hasn't.
+// Socket.IO connection carrying this lobby's live updates — chat messages and
+// the member list — and whether it has actually joined the lobby's room.
+// Sending falls back to the REST endpoint while it hasn't.
 let socket = null;
-let chatConnected = false;
+let lobbyConnected = false;
 
 // Lists longer than this scroll inside their panel instead of growing the page.
 const SCROLL_THRESHOLD = 10;
@@ -193,7 +194,8 @@ async function toggleMyReady(newReady) {
         if (!response.ok) {
             throw new Error(await errorFrom(response, 'Could not update ready state'));
         }
-        // update close button
+        // The server broadcasts the new list to the room, this tab included,
+        // but refetch anyway so the badge still flips when the socket is down.
         await loadLobbyMembers();
     } catch (error) {
         console.error('Failed to update ready state', error);
@@ -334,7 +336,7 @@ function appendMessage(message) {
 }
 
 // ==========================================
-// LIVE CHAT (Socket.IO)
+// LIVE UPDATES (Socket.IO)
 // ==========================================
 
 function setChatStatus(state, text) {
@@ -360,7 +362,7 @@ function loadSocketIoClient() {
     });
 }
 
-async function connectChat() {
+async function connectLive() {
     try {
         await loadSocketIoClient();
     } catch (error) {
@@ -382,24 +384,30 @@ async function connectChat() {
                 return;
             }
 
-            chatConnected = true;
+            lobbyConnected = true;
             setChatStatus('online', 'Live');
 
             // Refetch on every connect, not just the first: this also covers
-            // whatever was said while a dropped connection was reconnecting.
+            // whatever was said — and whoever joined or readied up — while a
+            // dropped connection was reconnecting.
             loadLobbyMessages();
+            loadLobbyMembers();
         });
     });
 
     socket.on('chat:message', appendMessage);
 
+    // The server sends the whole member list, so this is the same render the
+    // initial fetch does — no need to reconcile a delta against the DOM.
+    socket.on('lobby:members', renderMembers);
+
     socket.on('disconnect', () => {
-        chatConnected = false;
+        lobbyConnected = false;
         setChatStatus('connecting', 'Reconnecting…');
     });
 
     socket.on('connect_error', (error) => {
-        chatConnected = false;
+        lobbyConnected = false;
         console.error('Live chat connection failed:', error.message);
         setChatStatus('offline', 'Offline');
     });
@@ -429,7 +437,7 @@ async function sendMessage(event) {
     input.value = '';
 
     try {
-        if (chatConnected) {
+        if (lobbyConnected) {
             // The server echoes the message back to the whole room, this tab
             // included, so there's nothing to render here.
             await sendOverSocket(content);
@@ -483,6 +491,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Only after the lobby loaded — a non-member would just be rejected by
         // the room join anyway, and they've already been bounced by now.
-        connectChat();
+        connectLive();
     }
 });
