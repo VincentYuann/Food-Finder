@@ -1,5 +1,4 @@
 /* global io */
-
 // Lobby page: details, members, shortlisted restaurants and chat for one lobby.
 // Depends on api.js (API_BASE_URL, apiFetch, errorFrom, escapeHtml, redirectToLogin).
 import {
@@ -10,16 +9,15 @@ let currentLobby = null;
 let currentUser = null;
 let currentLobbyId = null;
 
-// Socket.IO connection carrying this lobby's live updates — chat messages and
-// the member list — and whether it has actually joined the lobby's room.
+// Socket.IO connection carrying this lobby's live updates - chat messages and
+// the member list - and whether it has actually joined the lobby's room.
 // Sending falls back to the REST endpoint while it hasn't.
 let socket = null;
 let lobbyConnected = false;
 
 // Lists longer than this scroll inside their panel instead of growing the page.
 const SCROLL_THRESHOLD = 10;
-
-const NO_PHOTO_HTML = '<div class="no-image">📷 No photo</div>';
+const NO_PHOTO_HTML = '<div class="no-image">📸 No photo</div>';
 
 function setScrollable(container, itemCount) {
     container.classList.toggle('scrollable-list', itemCount > SCROLL_THRESHOLD);
@@ -37,7 +35,6 @@ async function loadProfile() {
     try {
         const response = await apiFetch('/api/users/profile');
         if (!response.ok) throw new Error('Not authenticated');
-
         currentUser = await response.json();
     } catch (error) {
         console.error('Failed to load profile', error);
@@ -48,12 +45,10 @@ async function loadProfile() {
 async function loadLobbyDetails() {
     try {
         const response = await apiFetch(`/api/lobbies/${currentLobbyId}`);
-
         // Non-members get a 403 and people with a stale link get a 404.
         if (!response.ok) {
             throw new Error('Failed to load lobby details or you are not a member.');
         }
-
         currentLobby = await response.json();
         renderLobbyHeader(currentLobby);
     } catch (error) {
@@ -67,7 +62,6 @@ async function loadLobbyMembers() {
     try {
         const response = await apiFetch(`/api/lobbies/${currentLobbyId}/members`);
         if (!response.ok) throw new Error('Failed to load members');
-
         renderMembers(await response.json());
     } catch (error) {
         console.error(error);
@@ -79,7 +73,6 @@ async function loadLobbyRestaurants() {
     try {
         const response = await apiFetch(`/api/lobbies/${currentLobbyId}/restaurants`);
         if (!response.ok) throw new Error('Failed to load lobby restaurants');
-
         renderRestaurants(await response.json());
     } catch (error) {
         console.error(error);
@@ -92,7 +85,6 @@ async function loadLobbyMessages() {
     try {
         const response = await apiFetch(`/api/lobbies/${currentLobbyId}/messages`);
         if (!response.ok) throw new Error('Failed to load messages');
-
         renderMessages(await response.json());
     } catch (error) {
         console.error(error);
@@ -108,7 +100,6 @@ async function loadLobbyMessages() {
 function renderLobbyHeader(lobby) {
     document.getElementById('lobby-name').textContent = lobby.name || 'Untitled Lobby';
     const isCreator = currentUser && lobby.creator && currentUser.id === lobby.creator.id;
-
     document.getElementById('lobby-meta-info').innerHTML = `
         <div class="meta-item">Status: <strong>${escapeHtml(lobby.status)}</strong></div>
         <div class="meta-item">Invite Code: <strong>${escapeHtml(lobby.invite_code || '—')}</strong></div>
@@ -159,7 +150,6 @@ function renderMembers(members) {
 function updateCloseButtonState(members) {
     const btn = document.getElementById('close-lobby-btn');
     if (!btn) return;
-
     const totalMembers = members.length;
     const readyCount = members.filter((m) => m.ready).length;
     const required = Math.max(0, totalMembers - 1);
@@ -173,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('members-list').addEventListener('click', async (event) => {
         const btn = event.target.closest('button[data-action="toggle-ready"]');
         if (!btn) return;
+
         const currentReady = btn.dataset.ready === 'true';
         await toggleMyReady(!currentReady);
     });
@@ -206,12 +197,12 @@ async function toggleMyReady(newReady) {
 // close lobby (for creators)
 async function closeLobby() {
     if (!confirm('Close the lobby for everyone? This cannot be undone.')) return;
-
     try {
         const response = await apiFetch(`/api/lobbies/${currentLobbyId}`, {
             method: 'PATCH',
             body: { status: 'closed' }
         });
+
         if (!response.ok) {
             throw new Error(await errorFrom(response, 'Could not close the lobby'));
         }
@@ -226,7 +217,6 @@ async function closeLobby() {
 
 function restaurantCard(option) {
     const { restaurant } = option;
-
     const rating = restaurant.rating
         ? `<div class="rating">
                <span class="stars">★</span>
@@ -249,6 +239,7 @@ function restaurantCard(option) {
                 <div class="restaurant-address">${escapeHtml(restaurant.address || '')}</div>
                 <div class="action-buttons">
                     <button type="button" class="btn btn-primary" data-action="vote">Vote</button>
+                    <button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}">Remove</button>
                 </div>
             </div>
         </div>
@@ -309,7 +300,6 @@ function renderMessages(messages) {
     }
 
     container.innerHTML = messages.map(messageHtml).join('');
-
     // Newest messages sit at the bottom, so land the user there.
     container.scrollTop = container.scrollHeight;
 }
@@ -319,7 +309,7 @@ function appendMessage(message) {
     const container = document.getElementById('chat-messages');
 
     // A broadcast can race the initial fetch, and every reconnect refetches the
-    // whole history — so drop anything that is already rendered.
+    // whole history - so drop anything that is already rendered.
     if (container.querySelector(`[data-message-id="${message.id}"]`)) return;
 
     // Clears "Be the first to send a message!" (and any error notice).
@@ -331,7 +321,6 @@ function appendMessage(message) {
     const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 50;
 
     container.insertAdjacentHTML('beforeend', messageHtml(message));
-
     if (isAtBottom) container.scrollTop = container.scrollHeight;
 }
 
@@ -347,13 +336,12 @@ function setChatStatus(state, text) {
 
 /**
  * The Socket.IO client is served by the API itself, so the host lives in
- * API_BASE_URL only — no second URL hardcoded into the markup to forget when
+ * API_BASE_URL only - no second URL hardcoded into the markup to forget when
  * this gets deployed.
  */
 function loadSocketIoClient() {
     return new Promise((resolve, reject) => {
         if (window.io) return resolve();
-
         const script = document.createElement('script');
         script.src = `${API_BASE_URL}/socket.io/socket.io.js`;
         script.onload = () => resolve();
@@ -383,12 +371,11 @@ async function connectLive() {
                 setChatStatus('offline', 'Offline');
                 return;
             }
-
             lobbyConnected = true;
             setChatStatus('online', 'Live');
 
             // Refetch on every connect, not just the first: this also covers
-            // whatever was said — and whoever joined or readied up — while a
+            // whatever was said - and whoever joined or readied up - while a
             // dropped connection was reconnecting.
             loadLobbyMessages();
             loadLobbyMembers();
@@ -398,12 +385,12 @@ async function connectLive() {
     socket.on('chat:message', appendMessage);
 
     // The server sends the whole member list, so this is the same render the
-    // initial fetch does — no need to reconcile a delta against the DOM.
+    // initial fetch does - no need to reconcile a delta against the DOM.
     socket.on('lobby:members', renderMembers);
 
     socket.on('disconnect', () => {
         lobbyConnected = false;
-        setChatStatus('connecting', 'Reconnecting…');
+        setChatStatus('connecting', 'Reconnecting...');
     });
 
     socket.on('connect_error', (error) => {
@@ -428,7 +415,6 @@ function sendOverSocket(content) {
 
 async function sendMessage(event) {
     event.preventDefault();
-
     const input = document.getElementById('chat-input');
     const content = input.value.trim();
     if (!content) return;
@@ -442,14 +428,13 @@ async function sendMessage(event) {
             // included, so there's nothing to render here.
             await sendOverSocket(content);
         } else {
-            // No live socket — post it the old way so chat still works when
+            // No live socket - post it the old way so chat still works when
             // WebSockets are blocked or the connection is still coming up.
             const response = await apiFetch(`/api/lobbies/${currentLobbyId}/messages`, {
                 method: 'POST',
                 body: { content }
             });
             if (!response.ok) throw new Error(await errorFrom(response, 'Failed to send message'));
-
             await loadLobbyMessages();
         }
     } catch (error) {
@@ -460,24 +445,166 @@ async function sendMessage(event) {
 }
 
 // ==========================================
+// ADD RESTAURANTS (SEARCH & SAVED)
+// ==========================================
+
+// Toggle Panels
+document.getElementById('show-lobby-search-btn')?.addEventListener('click', () => {
+    document.getElementById('lobby-add-container').style.display = 'block';
+    document.getElementById('lobby-search-ui').style.display = 'block';
+    document.getElementById('lobby-saved-ui').style.display = 'none';
+});
+
+document.getElementById('show-lobby-saved-btn')?.addEventListener('click', async () => {
+    document.getElementById('lobby-add-container').style.display = 'block';
+    document.getElementById('lobby-search-ui').style.display = 'none';
+    document.getElementById('lobby-saved-ui').style.display = 'block';
+    await loadLobbySavedRestaurants();
+});
+
+document.getElementById('close-add-container')?.addEventListener('click', () => {
+    document.getElementById('lobby-add-container').style.display = 'none';
+});
+
+// Search API Call
+document.getElementById('lobby-search-submit')?.addEventListener('click', async () => {
+    const query = document.getElementById('lobby-search-input').value.trim();
+    if (!query) return;
+
+    const container = document.getElementById('lobby-search-results');
+    container.innerHTML = '<div class="chat-system-message">Searching...</div>';
+
+    try {
+        const response = await apiFetch(`/api/restaurants/search/text?query=${encodeURIComponent(query)}`);
+        if (!response.ok) throw new Error('Search failed');
+        const results = await response.json();
+
+        container.innerHTML = results.length === 0
+            ? '<div class="chat-system-message">No results found.</div>'
+            : results.map(r => renderAddCard(r)).join('');
+    } catch (error) {
+        console.error(error);
+        container.innerHTML = '<div class="chat-system-message" style="color:red;">Error searching.</div>';
+    }
+});
+
+// Saved API Call
+async function loadLobbySavedRestaurants() {
+    const container = document.getElementById('lobby-saved-results');
+    container.innerHTML = '<div class="chat-system-message">Loading saved restaurants...</div>';
+    try {
+        const response = await apiFetch('/api/restaurants/saved');
+        if (!response.ok) throw new Error('Failed to load saved restaurants');
+        const saved = await response.json();
+
+        container.innerHTML = saved.length === 0
+            ? '<div class="chat-system-message">No saved restaurants yet.</div>'
+            : saved.map(r => renderAddCard(r)).join('');
+    } catch (error) {
+        console.error(error);
+        container.innerHTML = '<div class="chat-system-message" style="color:red;">Error loading saved restaurants.</div>';
+    }
+}
+
+// Generate the Card HTML for Adding
+function renderAddCard(restaurant) {
+    const placeId = escapeHtml(restaurant.api_place_id);
+    const image = restaurant.photo_url
+        ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}"/>`
+        : NO_PHOTO_HTML;
+
+    return `
+        <div class="restaurant-card">
+            <div class="restaurant-image" style="height: 120px;">${image}</div>
+            <div class="restaurant-info">
+                <div class="restaurant-name" style="font-size: 1rem;">${escapeHtml(restaurant.name)}</div>
+                <div class="restaurant-address" style="font-size: 0.8rem;">${escapeHtml(restaurant.address || '')}</div>
+                <div class="action-buttons">
+                    <button type="button" class="btn btn-primary" data-action="add-to-lobby" data-place-id="${placeId}">Add to Lobby</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Handle "Add to Lobby" clicks inside the container
+document.getElementById('lobby-add-container')?.addEventListener('click', async (event) => {
+    const btn = event.target.closest('button[data-action="add-to-lobby"]');
+    if (!btn) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Adding...';
+
+    try {
+        const response = await apiFetch(`/api/lobbies/${currentLobbyId}/restaurants`, {
+            method: 'POST',
+            body: { api_place_id: btn.dataset.placeId }
+        });
+
+        if (!response.ok) {
+            throw new Error(await errorFrom(response, 'Failed to add restaurant'));
+        }
+
+        btn.textContent = 'Added!';
+        btn.classList.replace('btn-primary', 'btn-secondary');
+
+        await loadLobbyRestaurants();
+    } catch (error) {
+        console.error(error);
+        alert(error.message);
+        btn.disabled = false;
+        btn.textContent = 'Add to Lobby';
+    }
+});
+
+// ==========================================
 // SETUP
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', async () => {
     currentLobbyId = new URLSearchParams(window.location.search).get('id');
+
     if (!currentLobbyId) {
         window.location.replace('/index.html');
         return;
     }
 
     document.getElementById('chat-form').addEventListener('submit', sendMessage);
-    document.getElementById('lobby-restaurants-list').addEventListener('click', (event) => {
+
+    // Handle Vote & Remove actions
+    document.getElementById('lobby-restaurants-list').addEventListener('click', async (event) => {
         if (event.target.closest('button[data-action="vote"]')) {
             alert('Voting coming soon!');
         }
+
+        const removeBtn = event.target.closest('button[data-action="remove"]');
+        if (removeBtn) {
+            const restaurantId = removeBtn.dataset.restaurantId;
+            if (!confirm('Remove this restaurant from the lobby?')) return;
+
+            removeBtn.disabled = true;
+            removeBtn.textContent = 'Removing...';
+
+            try {
+                const response = await apiFetch(`/api/lobbies/${currentLobbyId}/restaurants/${restaurantId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error(await errorFrom(response, 'Failed to remove restaurant'));
+                }
+
+                await loadLobbyRestaurants();
+            } catch (error) {
+                console.error(error);
+                alert(error.message);
+                removeBtn.disabled = false;
+                removeBtn.textContent = 'Remove';
+            }
+        }
     });
 
-    // Who the user is, then the lobby itself — the member list needs both to
+    // Who the user is, then the lobby itself - the member list needs both to
     // work out which member is the host.
     await loadProfile();
     await loadLobbyDetails();
@@ -489,7 +616,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             loadLobbyMessages()
         ]);
 
-        // Only after the lobby loaded — a non-member would just be rejected by
+        // Only after the lobby loaded - a non-member would just be rejected by
         // the room join anyway, and they've already been bounced by now.
         connectLive();
     }

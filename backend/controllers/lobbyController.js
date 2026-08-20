@@ -1,3 +1,4 @@
+import { getRestaurantDetails } from '../services/googlePlacesService.js';
 import { randomInt } from 'crypto';
 import prisma from '../config/dbConfig.js';
 import publicUserSelect from '../utils/publicUserSelect.js';
@@ -348,29 +349,60 @@ export const getLobbyRestaurants = async (req, res) => {
 };
 
 export const addLobbyRestaurant = async (req, res) => {
-    const restaurantId = parseInt(req.body.restaurantId, 10);
+    let restaurantId = parseInt(req.body.restaurantId, 10);
+    const { api_place_id } = req.body;
 
-    if (Number.isNaN(restaurantId)) {
-        return res.status(400).json({ error: 'A valid restaurantId is required.' });
+    // Validate that at least one identifier is provided
+    if (Number.isNaN(restaurantId) && !api_place_id) {
+        return res.status(400).json({ error: 'A valid restaurantId or api_place_id is required.' });
     }
 
     try {
+        // If coming from search (api_place_id), resolve or create the restaurant in the DB
+        if (Number.isNaN(restaurantId) && api_place_id) {
+            let restaurant = await prisma.restaurant.findUnique({
+                where: { api_place_id }
+            });
+
+            // If it hasn't been cached yet, fetch details from Google Places and save it
+            if (!restaurant) {
+                const details = await getRestaurantDetails(api_place_id);
+                restaurant = await prisma.restaurant.create({
+                    data: {
+                        api_place_id: details.api_place_id,
+                        name: details.name,
+                        address: details.address,
+                        latitude: details.latitude,
+                        longitude: details.longitude,
+                        rating: details.rating,
+                        price_level: details.price_level,
+                        photo_url: details.photo_url
+                    }
+                });
+            }
+            restaurantId = restaurant.id;
+        }
+
+        // Add the restaurant to the lobby options
         const option = await prisma.lobbyRestaurantOption.create({
             data: {
                 lobby_id: req.lobbyId,
                 restaurant_id: restaurantId,
                 added_by: req.user.id,
+            },
+            include: {
+                restaurant: true,
+                adder: { select: publicUserSelect }
             }
         });
 
         res.status(201).json(option);
     } catch (error) {
         if (error.code === 'P2002') {
-            return res.status(409).json({ error: 'That restaurant is already in this lobby.' });
+            return res.status(409).json({ error: 'That restaurant is already an option in this lobby.' });
         }
-        // P2003 = foreign key constraint failed (restaurant isn't cached yet)
         if (error.code === 'P2003') {
-            return res.status(404).json({ error: 'That restaurant is not in the database yet.' });
+            return res.status(404).json({ error: 'That restaurant could not be found in the database.' });
         }
         console.error('Error adding lobby restaurant:', error);
         res.status(500).json({ error: 'Internal server error.' });
@@ -479,6 +511,28 @@ export const sendLobbyMessage = async (req, res) => {
             return res.status(400).json({ error: error.message });
         }
         console.error('Error sending lobby message:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+export const removeLobbyRestaurant = async (req, res) => {
+    const restaurantId = parseInt(req.params.restaurantId, 10);
+    if (Number.isNaN(restaurantId)) {
+        return res.status(400).json({ error: 'A valid restaurantId is required.' });
+    }
+
+    try {
+        await prisma.lobbyRestaurantOption.delete({
+            where: {
+                lobby_id_restaurant_id: { lobby_id: req.lobbyId, restaurant_id: restaurantId }
+            }
+        });
+        res.status(204).send();
+    } catch (error) {
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'That restaurant is not in this lobby.' });
+        }
+        console.error('Error removing lobby restaurant:', error);
         res.status(500).json({ error: 'Internal server error.' });
     }
 };

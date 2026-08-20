@@ -28,11 +28,37 @@
         <div class="lobby-layout">
             <!-- Main Content: Restaurants & Chat -->
             <main class="lobby-main-content">
+                <!-- Replace this section in lobby.html -->
                 <section class="lobby-section">
                     <h3>Restaurant Options</h3>
-                    <div class="section-controls">
-                        <a href="/search.html" class="btn btn-secondary">＋ Add from Search</a>
+                    
+                    <!-- New Toggle Controls -->
+                    <div class="section-controls" style="display: flex; gap: 0.5rem;">
+                        <button id="show-lobby-search-btn" class="btn btn-secondary">🔍 Add from Search</button>
+                        <button id="show-lobby-saved-btn" class="btn btn-secondary">❤️ Add from Saved</button>
                     </div>
+                    
+                    <!-- Hidden Add Container -->
+                    <div id="lobby-add-container" style="display: none; background: #f9f9f9; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+                        
+                        <!-- Search UI -->
+                        <div id="lobby-search-ui" style="display: none;">
+                            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                                <input type="text" id="lobby-search-input" placeholder="Search for food..." style="flex-grow: 1; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px;">
+                                <button id="lobby-search-submit" class="btn btn-primary">Search</button>
+                            </div>
+                            <div id="lobby-search-results" class="restaurants-grid scrollable-list"></div>
+                        </div>
+                        
+                        <!-- Saved UI -->
+                        <div id="lobby-saved-ui" style="display: none;">
+                            <h4 style="margin-top: 0;">Your Saved Restaurants</h4>
+                            <div id="lobby-saved-results" class="restaurants-grid scrollable-list"></div>
+                        </div>
+                        
+                        <button id="close-add-container" class="btn btn-secondary" style="margin-top: 1rem;">Close</button>
+                    </div>
+
                     <div id="lobby-restaurants-list" class="restaurants-grid">
                         <!-- Restaurant cards will be populated by JS -->
                     </div>

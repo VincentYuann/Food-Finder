@@ -227,3 +227,25 @@ export const getRestaurantById = async (req, res) => {
         res.status(500).json({ error: 'Failed to fetch restaurant' });
     }
 };
+
+export const removeLobbyRestaurant = async (req, res) => {
+    const restaurantId = parseInt(req.params.restaurantId, 10);
+    if (Number.isNaN(restaurantId)) {
+        return res.status(400).json({ error: 'A valid restaurantId is required.' });
+    }
+
+    try {
+        await prisma.lobbyRestaurantOption.delete({
+            where: {
+                lobby_id_restaurant_id: { lobby_id: req.lobbyId, restaurant_id: restaurantId }
+            }
+        });
+        res.status(204).send();
+    } catch (error) {
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'That restaurant is not in this lobby.' });
+        }
+        console.error('Error removing lobby restaurant:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
+};

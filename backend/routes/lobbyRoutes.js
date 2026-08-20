@@ -36,4 +36,9 @@ router.post('/:id/votes', isLobbyMember, lobbyController.castVote);
 router.get('/:id/messages', isLobbyMember, lobbyController.getLobbyMessages);
 router.post('/:id/messages', isLobbyMember, lobbyController.sendLobbyMessage);
 
+// Restaurant options
+router.get('/:id/restaurants', isLobbyMember, lobbyController.getLobbyRestaurants);
+router.post('/:id/restaurants', isLobbyMember, lobbyController.addLobbyRestaurant);
+router.delete('/:id/restaurants/:restaurantId', isLobbyMember, lobbyController.removeLobbyRestaurant);
+
 export default router;
