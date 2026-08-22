@@ -22,6 +22,22 @@ body.auth-page {
     transition: all 0.3s ease-in-out;
 }
 
+/* Brand Logo */
+.auth-brand {
+    margin-bottom: 1.5rem;
+}
+
+.auth-brand a {
+    display: inline-block;
+}
+
+.auth-logo {
+    width: 210px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
 /* Headings */
 .auth-container h2 {
     font-family: 'Poppins', sans-serif;

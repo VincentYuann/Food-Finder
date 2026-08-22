@@ -341,7 +341,41 @@ export const getLobbyRestaurants = async (req, res) => {
             }
         });
 
-        res.status(200).json(options);
+        // Auto-refetch if the restaurant data was purged (name is null)
+        const enrichedOptions = await Promise.all(options.map(async (option) => {
+            let restaurant = option.restaurant;
+            
+            if (!restaurant.name) {
+                try {
+                    const details = await getRestaurantDetails(restaurant.api_place_id);
+                    restaurant = await prisma.restaurant.update({
+                        where: { id: restaurant.id },
+                        data: {
+                            name: details.name,
+                            address: details.address,
+                            latitude: details.latitude ? parseFloat(details.latitude) : null,
+                            longitude: details.longitude ? parseFloat(details.longitude) : null,
+                            rating: details.rating ? parseFloat(details.rating) : null,
+                            price_level: details.price_level,
+                            photo_url: details.photo_url,
+                            primary_type: details.primary_type,
+                            user_rating_count: details.user_rating_count,
+                            phone_number: details.phone_number,
+                            website_url: details.website_url,
+                            google_maps_url: details.google_maps_url,
+                            opening_hours: details.opening_hours,
+                            cached_at: new Date()
+                        }
+                    });
+                    option.restaurant = restaurant;
+                } catch (err) {
+                    console.error('Failed to auto-refetch purged lobby option:', restaurant.api_place_id);
+                }
+            }
+            return option;
+        }));
+
+        res.status(200).json(enrichedOptions);
     } catch (error) {
         console.error('Error fetching lobby restaurants:', error);
         res.status(500).json({ error: 'Internal server error.' });

@@ -46,6 +46,31 @@ h4 {
     background: #fcfcfc;
 }
 
+/* Sidebar Brand */
+.sidebar-brand {
+    margin-bottom: 1.75rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.sidebar-brand a {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.sidebar-brand .app-logo {
+    width: 100%;
+    max-width: 190px;
+    height: auto;
+    display: block;
+    transition: transform 0.2s ease;
+}
+
+.sidebar-brand .app-logo:hover {
+    transform: scale(1.02);
+}
+
 .main-content {
     flex-grow: 1;
     padding: 2rem 3rem;

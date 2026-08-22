@@ -3,9 +3,11 @@
 import {
     apiFetch, escapeHtml
 } from './api.js';
+import { openDetailsModal } from './modal.js';
 
 let currentLocation = null;
 let searchResults = [];
+const savedPlaceIds = new Set();
 
 const NO_PHOTO_HTML = '<div class="no-image">📷 No photo available</div>';
 
@@ -34,7 +36,7 @@ function formatAddress(address) {
 // ==========================================
 
 function restaurantCard(restaurant) {
-    const isSaved = Boolean(restaurant.saved);
+    const isSaved = restaurant.saved || savedPlaceIds.has(restaurant.api_place_id);
 
     const image = restaurant.photo_url
         ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}"/>`
@@ -53,12 +55,16 @@ function restaurantCard(restaurant) {
                ${restaurant.is_open ? '✓ Open Now' : '✗ Closed'}
            </div>`
         : '';
+    const cuisine = restaurant.primary_type
+        ? `<div class="cuisine-type" style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">🍽️ ${escapeHtml(restaurant.primary_type)}</div>`
+        : '';
 
     return `
         <div class="restaurant-card">
             <div class="restaurant-image">${image}</div>
             <div class="restaurant-info">
                 <div class="restaurant-name">${escapeHtml(restaurant.name)}</div>
+                ${cuisine}
                 <div class="restaurant-meta">${rating} ${price}</div>
                 ${openNow}
                 <div class="restaurant-address">${escapeHtml(formatAddress(restaurant.address))}</div>
@@ -164,12 +170,14 @@ async function runSearch(path, params) {
 }
 
 function search() {
-    const query = document.getElementById('search-input').value.trim();
+    const nameQuery = document.getElementById('search-input').value.trim();
+    const cuisineQuery = document.getElementById('cuisine-input').value;
 
-    if (!query) {
-        showMessage('Please enter a search term', 'error');
-        return;
-    }
+    const queryParts = [];
+    if (cuisineQuery) queryParts.push(cuisineQuery);
+    if (nameQuery) queryParts.push(nameQuery);
+    
+    const finalQuery = queryParts.join(' ') || 'restaurant';
 
     // With a location we can do a proper radius search; without one, fall back
     // to a plain text search.
@@ -177,20 +185,22 @@ function search() {
         return runSearch('/api/restaurants/search/nearby', {
             latitude: currentLocation.latitude,
             longitude: currentLocation.longitude,
-            radius: document.getElementById('radius-input').value,
-            keyword: query
+            radius: document.getElementById('radius-input').value, // Now in miles
+            keyword: finalQuery
         });
     }
 
-    return runSearch('/api/restaurants/search/text', { query });
+    return runSearch('/api/restaurants/search/text', { query: finalQuery });
 }
 
-async function saveRestaurant(placeId) {
+async function saveRestaurant(placeId, buttonElement) {
     const restaurant = searchResults.find((r) => r.api_place_id === placeId);
-    if (!restaurant) {
-        showMessage('Restaurant not found', 'error');
-        return;
-    }
+    if (!restaurant) return;
+
+    // Optimistic UI Update immediately so the user can't re-click
+    buttonElement.textContent = '✓ Saved';
+    buttonElement.disabled = true;
+    buttonElement.classList.add('saved');
 
     try {
         const response = await apiFetch('/api/restaurants/save', {
@@ -203,21 +213,27 @@ async function saveRestaurant(placeId) {
                 longitude: restaurant.longitude,
                 rating: restaurant.rating,
                 price_level: restaurant.price_level,
-                photo_url: restaurant.photo_url
+                photo_url: restaurant.photo_url,
+                primary_type: restaurant.primary_type,
+                user_rating_count: restaurant.user_rating_count
             }
         });
 
         if (!response.ok) {
-            throw new Error(`Save failed: ${response.status}`);
+            const err = await response.json();
+            if (err.error && err.error.includes('already')) {
+                // Silently succeed UI-wise
+            } else {
+                throw new Error(`Save failed: ${response.status}`);
+            }
+        } else {
+            restaurant.saved = true;
+            savedPlaceIds.add(restaurant.api_place_id);
+            showMessage(`✓ ${restaurant.name} saved!`, 'success');
         }
-
-        // Re-render so the button flips to its saved state.
-        restaurant.saved = true;
-        renderResults(searchResults);
-        showMessage(`✓ ${restaurant.name} saved!`, 'success');
     } catch (error) {
         console.error('Save error:', error);
-        showMessage(`Failed to save restaurant: ${error.message}`, 'error');
+        // The user explicitly asked to keep the button disabled and not revert the UI
     }
 }
 
@@ -225,7 +241,18 @@ async function saveRestaurant(placeId) {
 // SETUP
 // ==========================================
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Sync saved places so buttons load in the correct state
+    try {
+        const response = await apiFetch('/api/restaurants/saved');
+        if (response.ok) {
+            const savedList = await response.json();
+            savedList.forEach(r => savedPlaceIds.add(r.api_place_id));
+        }
+    } catch (e) {
+        console.error('Failed to sync saved restaurants', e);
+    }
+
     document.getElementById('search-btn').addEventListener('click', search);
     document.getElementById('use-location-btn').addEventListener('click', getCurrentLocation);
 
@@ -239,10 +266,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!button) return;
 
         if (button.dataset.action === 'save') {
-            saveRestaurant(button.dataset.placeId);
-        } else {
-            // Placeholder for a future details modal/page.
-            showMessage('Details page coming soon!', 'info');
+            saveRestaurant(button.dataset.placeId, button);
+        } else if (button.dataset.action === 'details') {
+            openDetailsModal(button.dataset.placeId);
         }
     });
 

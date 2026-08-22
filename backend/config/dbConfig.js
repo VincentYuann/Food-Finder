@@ -1,10 +1,11 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
+import { withAccelerate } from "@prisma/extension-accelerate";
 
-// Prisma 7 needs a driver adapter to talk to Postgres.
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
-
-const prisma = new PrismaClient({ adapter });
+// Prisma Accelerate natively handles connection pooling and edge caching.
+// Ensure your DATABASE_URL in .env is set to the generated prisma://... string.
+const prisma = new PrismaClient({
+    accelerateUrl: process.env.DATABASE_URL
+}).$extends(withAccelerate());
 
 export default prisma;
