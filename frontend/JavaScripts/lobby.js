@@ -51,6 +51,7 @@ async function loadLobbyDetails() {
         }
         currentLobby = await response.json();
         renderLobbyHeader(currentLobby);
+        if (currentOptions.length > 0) renderRestaurants();
     } catch (error) {
         console.error(error);
         alert(error.message);
@@ -93,6 +94,17 @@ async function loadLobbyMessages() {
     }
 }
 
+let currentVotes = [];
+async function loadLobbyVotes() {
+    try {
+        const response = await apiFetch(`/api/lobbies/${currentLobbyId}/votes`);
+        if (!response.ok) throw new Error('Failed to load votes');
+        currentVotes = await response.json();
+    } catch (error) {
+        console.error(error);
+    }
+}
+
 // ==========================================
 // RENDERING
 // ==========================================
@@ -107,8 +119,12 @@ function renderLobbyHeader(lobby) {
     `;
 
     if (isCreator) {
-        const actionName = currentLobby.status === 'active' ? 'Start Voting' : 'Close Lobby';
-        document.getElementById('lobby-action-container').innerHTML = `<button id="close-lobby-btn" class="btn btn-warning" disabled>${actionName}</button>`;
+        if (currentLobby.status === 'closed') {
+            document.getElementById('lobby-action-container').innerHTML = `<button id="close-lobby-btn" class="btn" style="color: #dc3545; border-color: #dc3545; background-color: #fff;" disabled>Lobby Closed</button>`;
+        } else {
+            const actionName = currentLobby.status === 'active' ? 'Start Voting' : 'Close Lobby';
+            document.getElementById('lobby-action-container').innerHTML = `<button id="close-lobby-btn" class="btn btn-warning" disabled>${actionName}</button>`;
+        }
     }
 }
 
@@ -135,13 +151,17 @@ function renderMembers(members) {
         if (isCurrent && !isCreator) {
             const actionContainer = document.getElementById('lobby-action-container');
             if (actionContainer) {
-                let readyText = 'Ready';
-                if (currentLobby.status === 'active') {
-                    readyText = 'Ready to vote';
-                } else if (currentLobby.status === 'voting') {
-                    readyText = 'Ready to close';
+                if (currentLobby.status === 'closed') {
+                    actionContainer.innerHTML = `<button type="button" class="btn" style="color: #dc3545; border-color: #dc3545; background-color: #fff;" disabled>Lobby Closed</button>`;
+                } else {
+                    let readyText = 'Ready';
+                    if (currentLobby.status === 'active') {
+                        readyText = 'Ready to vote';
+                    } else if (currentLobby.status === 'voting') {
+                        readyText = 'Ready to close';
+                    }
+                    actionContainer.innerHTML = `<button type="button" class="btn btn-secondary" data-action="toggle-ready" data-ready="${m.ready}">${m.ready ? 'Unready' : readyText}</button>`;
                 }
-                actionContainer.innerHTML = `<button type="button" class="btn btn-secondary" data-action="toggle-ready" data-ready="${m.ready}">${m.ready ? 'Unready' : readyText}</button>`;
             }
         }
 
@@ -162,6 +182,16 @@ function renderMembers(members) {
 function updateCloseButtonState(members) {
     const btn = document.getElementById('close-lobby-btn');
     if (!btn) return;
+
+    if (currentLobby.status === 'closed') {
+        btn.disabled = true;
+        btn.textContent = 'Lobby Closed';
+        btn.style.color = '#dc3545';
+        btn.style.borderColor = '#dc3545';
+        btn.style.backgroundColor = '#fff';
+        return;
+    }
+
     const totalMembers = members.length;
     const readyCount = members.filter((m) => m.ready).length;
     const required = Math.max(0, totalMembers - 1);
@@ -258,9 +288,20 @@ function restaurantCard(option) {
 
     const isSaved = window.savedPlaceIds && window.savedPlaceIds.has(restaurant.api_place_id);
 
+    const votesForThis = currentVotes.filter(v => v.restaurant_id === restaurant.id);
+    const hasVotedForThis = votesForThis.some(v => currentUser && v.user_id === currentUser.id);
+    const showVotes = currentLobby.status === 'voting' || currentLobby.status === 'closed';
+    const voteBadge = showVotes
+        ? `<div style="margin-top: 5px; font-weight: bold; color: #ff6347;">Votes: ${votesForThis.length}</div>`
+        : '';
+        
+    const voteBtnHtml = showVotes && currentLobby.status !== 'closed'
+        ? `<button type="button" class="btn ${hasVotedForThis ? 'btn-secondary' : 'btn-primary'}" data-action="vote" data-restaurant-id="${restaurant.id}">${hasVotedForThis ? 'Voted ✓' : 'Vote'}</button>`
+        : '';
+
     return `
         <div class="restaurant-card" style="position: relative;">
-            ${isAddedByCurrentUser ? `<button type="button" data-action="remove" data-restaurant-id="${restaurant.id}" title="Remove from Lobby" style="position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; background: white; border: 1px solid #ddd; color: #dc3545; font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; padding: 0; line-height: 1;">&times;</button>` : ''}
+            ${isAddedByCurrentUser && currentLobby.status === 'active' ? `<button type="button" data-action="remove" data-restaurant-id="${restaurant.id}" title="Remove from Lobby" style="position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; background: white; border: 1px solid #ddd; color: #dc3545; font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; padding: 0; line-height: 1;">&times;</button>` : ''}
             <div class="restaurant-image">${image}</div>
             <div class="restaurant-info">
                 <div class="restaurant-name">${escapeHtml(restaurant.name)}</div>
@@ -268,9 +309,10 @@ function restaurantCard(option) {
                 <div class="restaurant-meta">${rating} ${price}</div>
                 ${openNow}
                 <div class="restaurant-address">${escapeHtml(restaurant.address || '')}</div>
+                ${voteBadge}
                 <div class="action-buttons-container" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
                     <div class="action-buttons" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0;">
-                        <button type="button" class="btn btn-primary" data-action="vote">Vote</button>
+                        ${voteBtnHtml}
                         <button type="button" class="btn btn-details" data-action="details" data-place-id="${escapeHtml(restaurant.api_place_id)}">Details</button>
                         <button type="button" class="btn btn-save ${isSaved ? 'saved' : ''}" data-action="save-lobby" data-place-id="${escapeHtml(restaurant.api_place_id)}" ${isSaved ? 'disabled' : ''}>${isSaved ? '✓ Saved' : '+ Save'}</button>
                     </div>
@@ -280,11 +322,14 @@ function restaurantCard(option) {
     `;
 }
 
-function renderRestaurants(options) {
-    const container = document.getElementById('lobby-restaurants-list');
-    setScrollable(container, options.length);
+let currentOptions = [];
 
-    if (options.length === 0) {
+function renderRestaurants(options) {
+    if (options) currentOptions = options;
+    const container = document.getElementById('lobby-restaurants-list');
+    setScrollable(container, currentOptions.length);
+
+    if (currentOptions.length === 0) {
         container.innerHTML = placeholder(
             'No restaurants have been added yet. Use the "Add from Search" button!',
             '#777'
@@ -292,7 +337,7 @@ function renderRestaurants(options) {
         return;
     }
 
-    container.innerHTML = options.map(restaurantCard).join('');
+    container.innerHTML = currentOptions.map(restaurantCard).join('');
 
     // Swap in the placeholder if a cached photo URL has gone stale. Done here
     // rather than with an inline onerror so the fallback markup doesn't have to
@@ -622,8 +667,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Handle Vote & Remove actions
     document.getElementById('lobby-restaurants-list').addEventListener('click', async (event) => {
-        if (event.target.closest('button[data-action="vote"]')) {
-            // Note: voting logic not fully implemented yet
+        const voteBtn = event.target.closest('button[data-action="vote"]');
+        if (voteBtn) {
+            const restaurantId = voteBtn.dataset.restaurantId;
+            voteBtn.disabled = true;
+            voteBtn.textContent = 'Voting...';
+            try {
+                const response = await apiFetch(`/api/lobbies/${currentLobbyId}/votes`, {
+                    method: 'POST',
+                    body: { restaurantId }
+                });
+                if (!response.ok) {
+                    throw new Error(await errorFrom(response, 'Failed to cast vote'));
+                }
+                // Reload votes to update UI
+                await loadLobbyVotes();
+                renderRestaurants(); // update cards
+            } catch (error) {
+                console.error(error);
+                alert(error.message);
+                voteBtn.disabled = false;
+                voteBtn.textContent = 'Vote';
+            }
         }
 
         const removeBtn = event.target.closest('button[data-action="remove"]');
@@ -708,9 +773,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (currentLobby) {
         await Promise.all([
             loadLobbyMembers(),
-            loadLobbyRestaurants(),
-            loadLobbyMessages()
+            loadLobbyMessages(),
+            loadLobbyVotes()
         ]);
+        
+        await loadLobbyRestaurants();
 
         // Only after the lobby loaded - a non-member would just be rejected by
         // the room join anyway, and they've already been bounced by now.
