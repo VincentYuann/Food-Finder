@@ -252,10 +252,9 @@ function restaurantCard(option) {
                 <div class="restaurant-address">${escapeHtml(restaurant.address || '')}</div>
                 <div class="action-buttons" style="flex-wrap: wrap; gap: 8px;">
                     <button type="button" class="btn btn-primary" data-action="vote">Vote</button>
-                    <button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}">Remove</button>
+                    ${isAddedByCurrentUser ? `<button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}">Remove</button>` : ''}
                     <button type="button" class="btn btn-details" data-action="details" data-place-id="${escapeHtml(restaurant.api_place_id)}">Details</button>
                     <button type="button" class="btn btn-save ${isSaved ? 'saved' : ''}" data-action="save-lobby" data-place-id="${escapeHtml(restaurant.api_place_id)}" ${isSaved ? 'disabled' : ''}>${isSaved ? '✓ Saved' : '+ Save'}</button>
-                    ${isAddedByCurrentUser ? `<button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}">Remove</button>` : ''}
                 </div>
             </div>
         </div>
