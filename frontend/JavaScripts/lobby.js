@@ -242,7 +242,8 @@ function restaurantCard(option) {
     const isSaved = window.savedPlaceIds && window.savedPlaceIds.has(restaurant.api_place_id);
 
     return `
-        <div class="restaurant-card">
+        <div class="restaurant-card" style="position: relative;">
+            ${isAddedByCurrentUser ? `<button type="button" data-action="remove" data-restaurant-id="${restaurant.id}" title="Remove from Lobby" style="position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; background: white; border: 1px solid #ddd; color: #dc3545; font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; padding: 0; line-height: 1;">&times;</button>` : ''}
             <div class="restaurant-image">${image}</div>
             <div class="restaurant-info">
                 <div class="restaurant-name">${escapeHtml(restaurant.name)}</div>
@@ -256,7 +257,6 @@ function restaurantCard(option) {
                         <button type="button" class="btn btn-details" data-action="details" data-place-id="${escapeHtml(restaurant.api_place_id)}">Details</button>
                         <button type="button" class="btn btn-save ${isSaved ? 'saved' : ''}" data-action="save-lobby" data-place-id="${escapeHtml(restaurant.api_place_id)}" ${isSaved ? 'disabled' : ''}>${isSaved ? '✓ Saved' : '+ Save'}</button>
                     </div>
-                    ${isAddedByCurrentUser ? `<button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}" style="width: 100%;">Remove from Lobby</button>` : ''}
                 </div>
             </div>
         </div>
@@ -612,10 +612,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const removeBtn = event.target.closest('button[data-action="remove"]');
         if (removeBtn) {
             const restaurantId = removeBtn.dataset.restaurantId;
-            if (!confirm('Remove this restaurant from the lobby?')) return;
-
-            removeBtn.disabled = true;
-            removeBtn.textContent = 'Removing...';
+            const card = removeBtn.closest('.restaurant-card');
+            
+            // Optimistic UI update: instantly hide/fade the card without alerting
+            if (card) {
+                card.style.transition = 'opacity 0.2s ease-out';
+                card.style.opacity = '0.3';
+                removeBtn.disabled = true;
+            }
 
             try {
                 const response = await apiFetch(`/api/lobbies/${currentLobbyId}/restaurants/${restaurantId}`, {
@@ -629,8 +633,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await loadLobbyRestaurants();
             } catch (error) {
                 console.error(error);
-                removeBtn.disabled = false;
-                removeBtn.textContent = 'Remove';
+                // Revert optimistic UI on failure
+                if (card) {
+                    card.style.opacity = '1';
+                    removeBtn.disabled = false;
+                }
             }
         }
 
