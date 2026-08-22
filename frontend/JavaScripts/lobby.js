@@ -216,7 +216,8 @@ async function closeLobby() {
 }
 
 function restaurantCard(option) {
-    const { restaurant } = option;
+    const { restaurant, adder } = option;
+    const isAddedByCurrentUser = currentUser && adder && currentUser.id === adder.id;
     const rating = restaurant.rating
         ? `<div class="rating">
                <span class="stars">★</span>
@@ -254,6 +255,7 @@ function restaurantCard(option) {
                     <button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}">Remove</button>
                     <button type="button" class="btn btn-details" data-action="details" data-place-id="${escapeHtml(restaurant.api_place_id)}">Details</button>
                     <button type="button" class="btn btn-save ${isSaved ? 'saved' : ''}" data-action="save-lobby" data-place-id="${escapeHtml(restaurant.api_place_id)}" ${isSaved ? 'disabled' : ''}>${isSaved ? '✓ Saved' : '+ Save'}</button>
+                    ${isAddedByCurrentUser ? `<button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}">Remove</button>` : ''}
                 </div>
             </div>
         </div>
