@@ -529,7 +529,7 @@ function renderAddCard(restaurant) {
     const image = restaurant.photo_url
         ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}"/>`
         : NO_PHOTO_HTML;
-    
+
     const rating = restaurant.rating ? `<span style="font-size: 0.8rem; color: #666;">★ ${parseFloat(restaurant.rating).toFixed(1)}</span>` : '';
     const cuisine = restaurant.primary_type ? `<span style="font-size: 0.8rem; color: #666; margin-left: 5px;">🍽️ ${escapeHtml(restaurant.primary_type)}</span>` : '';
 
@@ -633,7 +633,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 removeBtn.textContent = 'Remove';
             }
         }
-        
+
         const detailsBtn = event.target.closest('button[data-action="details"]');
         if (detailsBtn) {
             const { openDetailsModal } = await import('./modal.js');
@@ -667,7 +667,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } else {
                     window.savedPlaceIds.add(placeId);
                 }
-                
+
             } catch (error) {
                 console.error(error);
                 // The user explicitly requested NO alerts and for the button to remain disabled + Saved
