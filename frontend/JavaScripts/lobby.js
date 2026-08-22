@@ -104,8 +104,12 @@ function renderLobbyHeader(lobby) {
         <div class="meta-item">Status: <strong>${escapeHtml(lobby.status)}</strong></div>
         <div class="meta-item">Invite Code: <strong>${escapeHtml(lobby.invite_code || '—')}</strong></div>
         <div class="meta-item">Created by: <strong>@${escapeHtml(lobby.creator.username)}</strong></div>
-        ${isCreator ? `<div class="meta-item"><button id="close-lobby-btn" class="btn btn-warning" disabled>Close Lobby</button></div>` : ''}
     `;
+
+    if (isCreator) {
+        const actionName = currentLobby.status === 'active' ? 'Start Voting' : 'Close Lobby';
+        document.getElementById('lobby-action-container').innerHTML = `<button id="close-lobby-btn" class="btn btn-warning" disabled>${actionName}</button>`;
+    }
 }
 
 function renderMembers(members) {
@@ -128,9 +132,18 @@ function renderMembers(members) {
             : `<span class="not-ready-badge">Not ready</span>`;
 
         // show a toggle button to mark ready/unready
-        const actionButton = isCurrent && !isCreator
-            ? `<button type="button" class="btn btn-secondary" data-action="toggle-ready" data-ready="${m.ready}">${m.ready ? 'Unready' : 'Ready'}</button>`
-            : '';
+        if (isCurrent && !isCreator) {
+            const actionContainer = document.getElementById('lobby-action-container');
+            if (actionContainer) {
+                let readyText = 'Ready';
+                if (currentLobby.status === 'active') {
+                    readyText = 'Ready to vote';
+                } else if (currentLobby.status === 'voting') {
+                    readyText = 'Ready to close';
+                }
+                actionContainer.innerHTML = `<button type="button" class="btn btn-secondary" data-action="toggle-ready" data-ready="${m.ready}">${m.ready ? 'Unready' : readyText}</button>`;
+            }
+        }
 
         const creatorClass = isCreator ? 'member-creator' : '';
 
@@ -139,7 +152,6 @@ function renderMembers(members) {
                 <div class="member-avatar">${escapeHtml(user.username.charAt(0))}</div>
                 <span class="member-name">${escapeHtml(user.username)}${isCreator ? ' (host)' : ''}</span>
                 <span class="member-ready">${readyBadge}</span>
-                ${actionButton}
             </li>
         `;
     }).join('');
@@ -156,19 +168,18 @@ function updateCloseButtonState(members) {
     const canClose = readyCount >= required;
 
     btn.disabled = !canClose;
-    btn.textContent = canClose ? `Close Lobby (${readyCount}/${totalMembers} ready)` : `Close Lobby (${readyCount}/${totalMembers} ready)`;
+    const actionName = currentLobby.status === 'active' ? 'Start Voting' : 'Close Lobby';
+    btn.textContent = `${actionName} (${readyCount}/${totalMembers} ready)`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('members-list').addEventListener('click', async (event) => {
+    document.addEventListener('click', async (event) => {
         const btn = event.target.closest('button[data-action="toggle-ready"]');
-        if (!btn) return;
+        if (btn) {
+            const currentReady = btn.dataset.ready === 'true';
+            await toggleMyReady(!currentReady);
+        }
 
-        const currentReady = btn.dataset.ready === 'true';
-        await toggleMyReady(!currentReady);
-    });
-
-    document.getElementById('lobby-meta-info').addEventListener('click', (event) => {
         if (event.target && event.target.id === 'close-lobby-btn') {
             closeLobby();
         }
@@ -194,24 +205,30 @@ async function toggleMyReady(newReady) {
     }
 }
 
-// close lobby (for creators)
+// progress lobby (for creators)
 async function closeLobby() {
-    if (!confirm('Close the lobby for everyone? This cannot be undone.')) return;
+    const isVotingNext = currentLobby.status === 'active';
+    const nextStatus = isVotingNext ? 'voting' : 'closed';
+    const promptMsg = isVotingNext 
+        ? 'Are you ready to start voting?' 
+        : 'Close the lobby for everyone? This cannot be undone.';
+        
+    if (!confirm(promptMsg)) return;
     try {
         const response = await apiFetch(`/api/lobbies/${currentLobbyId}`, {
             method: 'PATCH',
-            body: { status: 'closed' }
+            body: { status: nextStatus }
         });
 
         if (!response.ok) {
-            throw new Error(await errorFrom(response, 'Could not close the lobby'));
+            throw new Error(await errorFrom(response, 'Could not update the lobby'));
         }
         // show new status
         await loadLobbyDetails();
         await loadLobbyMembers();
     } catch (error) {
-        console.error('Failed to close lobby', error);
-        alert(error.message || 'Could not close the lobby.');
+        console.error('Failed to update lobby', error);
+        alert(error.message || 'Could not update the lobby.');
     }
 }
 

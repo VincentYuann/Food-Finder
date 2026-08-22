@@ -312,6 +312,25 @@ export const setMemberReady = async (req, res) => {
             include: { user: { select: publicUserSelect } }
         });
 
+        // check if everyone is ready to vote
+        if (req.lobby.status === 'active' && requestedReady) {
+            const totalMembers = await prisma.lobbyMember.count({ where: { lobby_id: req.lobbyId } });
+            const readyCount = await prisma.lobbyMember.count({ where: { lobby_id: req.lobbyId, ready: true } });
+            
+            if (totalMembers > 0 && readyCount === totalMembers) {
+                // Auto transition to 'voting'
+                await prisma.lobby.update({
+                    where: { id: req.lobbyId },
+                    data: { status: 'voting' }
+                });
+                // reset everyone's ready status for the voting phase
+                await prisma.lobbyMember.updateMany({
+                    where: { lobby_id: req.lobbyId },
+                    data: { ready: false }
+                });
+            }
+        }
+
         // Everyone's ready tally — and the host's Close Lobby button — updates
         // without waiting for a refresh.
         await broadcastLobbyMembers(req.lobbyId);
@@ -383,6 +402,10 @@ export const getLobbyRestaurants = async (req, res) => {
 };
 
 export const addLobbyRestaurant = async (req, res) => {
+    if (req.lobby.status !== 'active') {
+        return res.status(403).json({ error: 'Restaurant options cannot be added once voting has started.' });
+    }
+
     let restaurantId = parseInt(req.body.restaurantId, 10);
     const { api_place_id } = req.body;
 
@@ -465,6 +488,10 @@ export const getLobbyVotes = async (req, res) => {
 };
 
 export const castVote = async (req, res) => {
+    if (req.lobby.status !== 'voting') {
+        return res.status(403).json({ error: 'Voting is not currently active.' });
+    }
+
     const restaurantId = parseInt(req.body.restaurantId, 10);
 
     if (Number.isNaN(restaurantId)) {
@@ -472,6 +499,18 @@ export const castVote = async (req, res) => {
     }
 
     try {
+        const totalMembers = await prisma.lobbyMember.count({ where: { lobby_id: req.lobbyId } });
+        const totalVotes = await prisma.vote.count({ where: { lobby_id: req.lobbyId } });
+        
+        // If the current user hasn't voted yet, they are allowed to vote up until everyone has voted.
+        // If they already voted, they can only change if not everyone has voted yet.
+        const existingVote = await prisma.vote.findUnique({
+            where: { lobby_id_user_id: { lobby_id: req.lobbyId, user_id: req.user.id } }
+        });
+
+        if (totalVotes >= totalMembers && existingVote) {
+            return res.status(403).json({ error: 'Everyone has voted. No more changes can be made.' });
+        }
         // Only options that were actually shortlisted in this lobby are votable.
         const option = await prisma.lobbyRestaurantOption.findUnique({
             where: {
@@ -550,6 +589,10 @@ export const sendLobbyMessage = async (req, res) => {
 };
 
 export const removeLobbyRestaurant = async (req, res) => {
+    if (req.lobby.status !== 'active') {
+        return res.status(403).json({ error: 'Restaurant options cannot be removed once voting has started.' });
+    }
+
     const restaurantId = parseInt(req.params.restaurantId, 10);
     if (Number.isNaN(restaurantId)) {
         return res.status(400).json({ error: 'A valid restaurantId is required.' });
