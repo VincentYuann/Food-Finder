@@ -216,7 +216,8 @@ async function closeLobby() {
 }
 
 function restaurantCard(option) {
-    const { restaurant } = option;
+    const { restaurant, adder } = option;
+    const isAddedByCurrentUser = currentUser && adder && currentUser.id === adder.id;
     const rating = restaurant.rating
         ? `<div class="rating">
                <span class="stars">★</span>
@@ -239,7 +240,7 @@ function restaurantCard(option) {
                 <div class="restaurant-address">${escapeHtml(restaurant.address || '')}</div>
                 <div class="action-buttons">
                     <button type="button" class="btn btn-primary" data-action="vote">Vote</button>
-                    <button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}">Remove</button>
+                    ${isAddedByCurrentUser ? `<button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}">Remove</button>` : ''}
                 </div>
             </div>
         </div>
