@@ -250,11 +250,13 @@ function restaurantCard(option) {
                 <div class="restaurant-meta">${rating} ${price}</div>
                 ${openNow}
                 <div class="restaurant-address">${escapeHtml(restaurant.address || '')}</div>
-                <div class="action-buttons" style="flex-wrap: wrap; gap: 8px;">
-                    <button type="button" class="btn btn-primary" data-action="vote">Vote</button>
-                    <button type="button" class="btn btn-details" data-action="details" data-place-id="${escapeHtml(restaurant.api_place_id)}">Details</button>
-                    <button type="button" class="btn btn-save ${isSaved ? 'saved' : ''}" data-action="save-lobby" data-place-id="${escapeHtml(restaurant.api_place_id)}" ${isSaved ? 'disabled' : ''}>${isSaved ? '✓ Saved' : '+ Save'}</button>
-                    ${isAddedByCurrentUser ? `<button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}">Remove</button>` : ''}
+                <div class="action-buttons-container" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+                    <div class="action-buttons" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0;">
+                        <button type="button" class="btn btn-primary" data-action="vote">Vote</button>
+                        <button type="button" class="btn btn-details" data-action="details" data-place-id="${escapeHtml(restaurant.api_place_id)}">Details</button>
+                        <button type="button" class="btn btn-save ${isSaved ? 'saved' : ''}" data-action="save-lobby" data-place-id="${escapeHtml(restaurant.api_place_id)}" ${isSaved ? 'disabled' : ''}>${isSaved ? '✓ Saved' : '+ Save'}</button>
+                    </div>
+                    ${isAddedByCurrentUser ? `<button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}" style="width: 100%;">Remove from Lobby</button>` : ''}
                 </div>
             </div>
         </div>
