@@ -230,16 +230,31 @@ function restaurantCard(option) {
     const image = restaurant.photo_url
         ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}"/>`
         : NO_PHOTO_HTML;
+    const openNow = restaurant.is_open !== null && restaurant.is_open !== undefined
+        ? `<div class="is-open ${restaurant.is_open ? 'open' : 'closed'}">
+               ${restaurant.is_open ? '✓ Open Now' : '✗ Closed'}
+           </div>`
+        : '';
+    const cuisine = restaurant.primary_type
+        ? `<div class="cuisine-type" style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">🍽️ ${escapeHtml(restaurant.primary_type)}</div>`
+        : '';
+
+    const isSaved = window.savedPlaceIds && window.savedPlaceIds.has(restaurant.api_place_id);
 
     return `
         <div class="restaurant-card">
             <div class="restaurant-image">${image}</div>
             <div class="restaurant-info">
                 <div class="restaurant-name">${escapeHtml(restaurant.name)}</div>
+                ${cuisine}
                 <div class="restaurant-meta">${rating} ${price}</div>
+                ${openNow}
                 <div class="restaurant-address">${escapeHtml(restaurant.address || '')}</div>
-                <div class="action-buttons">
+                <div class="action-buttons" style="flex-wrap: wrap; gap: 8px;">
                     <button type="button" class="btn btn-primary" data-action="vote">Vote</button>
+                    <button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}">Remove</button>
+                    <button type="button" class="btn btn-details" data-action="details" data-place-id="${escapeHtml(restaurant.api_place_id)}">Details</button>
+                    <button type="button" class="btn btn-save ${isSaved ? 'saved' : ''}" data-action="save-lobby" data-place-id="${escapeHtml(restaurant.api_place_id)}" ${isSaved ? 'disabled' : ''}>${isSaved ? '✓ Saved' : '+ Save'}</button>
                     ${isAddedByCurrentUser ? `<button type="button" class="btn btn-danger" data-action="remove" data-restaurant-id="${restaurant.id}">Remove</button>` : ''}
                 </div>
             </div>
@@ -513,12 +528,16 @@ function renderAddCard(restaurant) {
     const image = restaurant.photo_url
         ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}"/>`
         : NO_PHOTO_HTML;
+    
+    const rating = restaurant.rating ? `<span style="font-size: 0.8rem; color: #666;">★ ${parseFloat(restaurant.rating).toFixed(1)}</span>` : '';
+    const cuisine = restaurant.primary_type ? `<span style="font-size: 0.8rem; color: #666; margin-left: 5px;">🍽️ ${escapeHtml(restaurant.primary_type)}</span>` : '';
 
     return `
         <div class="restaurant-card">
             <div class="restaurant-image" style="height: 120px;">${image}</div>
             <div class="restaurant-info">
                 <div class="restaurant-name" style="font-size: 1rem;">${escapeHtml(restaurant.name)}</div>
+                <div style="margin-bottom: 4px;">${rating}${cuisine}</div>
                 <div class="restaurant-address" style="font-size: 0.8rem;">${escapeHtml(restaurant.address || '')}</div>
                 <div class="action-buttons">
                     <button type="button" class="btn btn-primary" data-action="add-to-lobby" data-place-id="${placeId}">Add to Lobby</button>
@@ -563,6 +582,17 @@ document.getElementById('lobby-add-container')?.addEventListener('click', async 
 // ==========================================
 
 document.addEventListener('DOMContentLoaded', async () => {
+    window.savedPlaceIds = new Set();
+    try {
+        const response = await apiFetch('/api/restaurants/saved');
+        if (response.ok) {
+            const savedList = await response.json();
+            savedList.forEach(r => window.savedPlaceIds.add(r.api_place_id));
+        }
+    } catch (e) {
+        console.error('Failed to sync saved restaurants', e);
+    }
+
     currentLobbyId = new URLSearchParams(window.location.search).get('id');
 
     if (!currentLobbyId) {
@@ -575,7 +605,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Handle Vote & Remove actions
     document.getElementById('lobby-restaurants-list').addEventListener('click', async (event) => {
         if (event.target.closest('button[data-action="vote"]')) {
-            alert('Voting coming soon!');
+            // Note: voting logic not fully implemented yet
         }
 
         const removeBtn = event.target.closest('button[data-action="remove"]');
@@ -598,9 +628,49 @@ document.addEventListener('DOMContentLoaded', async () => {
                 await loadLobbyRestaurants();
             } catch (error) {
                 console.error(error);
-                alert(error.message);
                 removeBtn.disabled = false;
                 removeBtn.textContent = 'Remove';
+            }
+        }
+        
+        const detailsBtn = event.target.closest('button[data-action="details"]');
+        if (detailsBtn) {
+            const { openDetailsModal } = await import('./modal.js');
+            openDetailsModal(detailsBtn.dataset.placeId);
+        }
+
+        const saveBtn = event.target.closest('button[data-action="save-lobby"]');
+        if (saveBtn) {
+            // Need to fetch full place details from current list to save it to DB
+            const placeId = saveBtn.dataset.placeId;
+            saveBtn.textContent = '✓ Saved';
+            saveBtn.disabled = true;
+            saveBtn.classList.add('saved');
+
+            try {
+                const detRes = await apiFetch(`/api/restaurants/details/${placeId}`);
+                if (!detRes.ok) throw new Error('Failed to fetch details for saving');
+                const restaurant = await detRes.json();
+
+                const response = await apiFetch('/api/restaurants/save', {
+                    method: 'POST',
+                    body: restaurant
+                });
+                if (!response.ok) {
+                    const errText = await errorFrom(response, 'Failed to save restaurant');
+                    if (errText.includes('already')) {
+                        // Already saved, keep button in Saved state silently
+                    } else {
+                        throw new Error(errText);
+                    }
+                } else {
+                    window.savedPlaceIds.add(placeId);
+                }
+                
+            } catch (error) {
+                console.error(error);
+                // The user explicitly requested NO alerts and for the button to remain disabled + Saved
+                // so we silently swallow the UI revert.
             }
         }
     });

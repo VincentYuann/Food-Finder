@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 50" width="100%" height="100%">
+  <defs>
+    <linearGradient id="monogram-grad-full" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B4A"/>
+      <stop offset="100%" stop-color="#EA4A2B"/>
+    </linearGradient>
+  </defs>
+  <!-- Icon (Fork Monogram) -->
+  <g transform="translate(4, 5) scale(0.82)">
+    <rect x="4" y="4" width="40" height="40" rx="10" fill="url(#monogram-grad-full)"/>
+    <rect x="14" y="12" width="5" height="24" rx="2.5" fill="#FFFFFF"/>
+    <rect x="17" y="12" width="17" height="4" rx="2" fill="#FFFFFF"/>
+    <rect x="17" y="18.5" width="17" height="4" rx="2" fill="#FFFFFF"/>
+    <rect x="17" y="25" width="11" height="4" rx="2" fill="#FFFFFF"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="54" y="32" font-family="'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="25" font-weight="700" fill="#1E293B" letter-spacing="-0.5">Food<tspan fill="#EA4A2B" font-weight="800">Finder</tspan></text>
+</svg>

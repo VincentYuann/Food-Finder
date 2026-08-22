@@ -3,6 +3,7 @@
 import {
     apiFetch, errorFrom, escapeHtml, redirectToLogin
 } from './api.js';
+import { openDetailsModal } from './modal.js';
 
 // The signed-in user, needed to tell whether they host a given lobby.
 let currentUser = null;
@@ -58,15 +59,24 @@ function savedRestaurantCard(restaurant) {
                <span>${parseFloat(restaurant.rating).toFixed(1)}</span>
            </div>`
         : '';
+        
+    const cuisine = restaurant.primary_type
+        ? `<div class="meta-item cuisine" style="color:#666; margin-left: 8px;">🍽️ ${escapeHtml(restaurant.primary_type)}</div>`
+        : '';
+        
+    const image = restaurant.photo_url
+        ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; margin-right: 15px;" />`
+        : `<div style="width: 60px; height: 60px; background: #eee; border-radius: 8px; margin-right: 15px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📸</div>`;
 
     return `
-        <li class="dashboard-card" id="saved-restaurant-${restaurant.id}">
-            <div class="card-content">
+        <li class="dashboard-card" id="saved-restaurant-${restaurant.id}" style="display: flex; align-items: center; padding: 15px;">
+            ${image}
+            <div class="card-content" style="flex: 1;">
                 <div class="card-title">${escapeHtml(restaurant.name)}</div>
                 <div class="card-address">${escapeHtml(restaurant.address || 'Address not available')}</div>
-                <div class="card-meta">${rating}</div>
+                <div class="card-meta" style="display: flex; align-items: center; margin-top: 5px;">${rating}${cuisine}</div>
             </div>
-            <div class="card-actions">
+            <div class="card-actions" style="display: flex; flex-direction: column; gap: 8px;">
                 <button type="button" class="btn btn-details"
                         data-action="details" data-place-id="${escapeHtml(restaurant.api_place_id)}">Details</button>
                 <button type="button" class="btn btn-danger"
@@ -100,15 +110,19 @@ async function loadSavedRestaurants() {
 
 // Removing the row by hand keeps the page from flashing through a full reload.
 async function unsaveRestaurant(restaurantId) {
+    const el = document.getElementById(`saved-restaurant-${restaurantId}`);
+    if (el) el.style.opacity = '0.5'; // optimistic UI feedback
+
     try {
         const response = await apiFetch(`/api/restaurants/saved/${restaurantId}`, { method: 'DELETE' });
 
         if (!response.ok) {
-            alert('Failed to remove restaurant.');
+            console.error('Failed to remove restaurant.');
+            if (el) el.style.opacity = '1';
             return;
         }
 
-        document.getElementById(`saved-restaurant-${restaurantId}`)?.remove();
+        if (el) el.remove();
 
         const list = document.getElementById('saved-list');
         if (list.children.length === 0) {
@@ -116,7 +130,7 @@ async function unsaveRestaurant(restaurantId) {
         }
     } catch (error) {
         console.error('Failed to remove restaurant', error);
-        alert('An error occurred while removing the restaurant.');
+        if (el) el.style.opacity = '1';
     }
 }
 
@@ -310,9 +324,8 @@ function wireUpListeners() {
 
         if (button.dataset.action === 'unsave') {
             unsaveRestaurant(button.dataset.restaurantId);
-        } else {
-            // Placeholder: this could open a details modal later.
-            alert(`Restaurant details for ${button.dataset.placeId} are coming soon!`);
+        } else if (button.dataset.action === 'details') {
+            openDetailsModal(button.dataset.placeId);
         }
     });
 }

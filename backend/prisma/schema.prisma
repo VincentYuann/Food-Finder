@@ -38,16 +38,22 @@ model User {
 // re-fetching the API every time.
 // ============================
 model Restaurant {
-  id           Int      @id @default(autoincrement())
-  api_place_id String   @unique @db.VarChar(255)
-  name         String   @db.VarChar(255)
-  address      String?
-  latitude     Decimal? @db.Decimal(9, 6)
-  longitude    Decimal? @db.Decimal(9, 6)
-  rating       Decimal? @db.Decimal(2, 1)
-  price_level  Int?
-  photo_url    String?
-  cached_at    DateTime @default(now())
+  id                Int      @id @default(autoincrement())
+  api_place_id      String   @unique @db.VarChar(255)
+  name              String?  @db.VarChar(255)
+  address           String?
+  latitude          Decimal? @db.Decimal(9, 6)
+  longitude         Decimal? @db.Decimal(9, 6)
+  rating            Decimal? @db.Decimal(2, 1)
+  price_level       Int?
+  photo_url         String?
+  primary_type      String?  @db.VarChar(100)
+  user_rating_count Int?
+  phone_number      String?  @db.VarChar(50)
+  website_url       String?
+  google_maps_url   String?
+  opening_hours     Json?
+  cached_at         DateTime @default(now())
 
   saved_by          SavedRestaurant[]
   chosen_by_lobbies Lobby[]

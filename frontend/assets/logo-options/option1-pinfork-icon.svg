@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="100%" height="100%">
+  <defs>
+    <linearGradient id="pinfork-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B4A"/>
+      <stop offset="100%" stop-color="#EA4A2B"/>
+    </linearGradient>
+    <filter id="subtle-shadow" x="-10%" y="-10%" width="120%" height="125%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+  <!-- Map Pin Body -->
+  <path d="M24 3 C14.61 3 7 10.61 7 20 C7 31.8 21.8 44.2 23.1 45.28 C23.63 45.72 24.37 45.72 24.9 45.28 C26.2 44.2 41 31.8 41 20 C41 10.61 33.39 3 24 3 Z" fill="url(#pinfork-grad)" filter="url(#subtle-shadow)"/>
+  <!-- Fork Silhouette Cutout -->
+  <!-- Fork Handle -->
+  <rect x="22.25" y="24" width="3.5" height="12" rx="1.75" fill="#FFFFFF"/>
+  <!-- Fork Head & Base -->
+  <path d="M16 11 H18.5 V17.5 C18.5 19.5 19.8 21.2 21.75 21.8 V24 H26.25 V21.8 C28.2 21.2 29.5 19.5 29.5 17.5 V11 H32 V17.5 C32 21.2 29.2 24.2 25.5 24.8 V24.8 C22.8 24.8 20 22.8 19 20 C18.5 18.5 18.5 17 18.5 17" fill="none"/>
+  <!-- Crisp Fork Shape (Combined) -->
+  <path d="M16.5 11 C16.5 10.45 16.95 10 17.5 10 C18.05 10 18.5 10.45 18.5 11 V16.5 C18.5 18.5 20 19.8 21.75 20.1 V27 C21.75 28.2 22.8 29 24 29 C25.2 29 26.25 28.2 26.25 27 V20.1 C28 19.8 29.5 18.5 29.5 16.5 V11 C29.5 10.45 29.95 10 30.5 10 C31.05 10 31.5 10.45 31.5 11 V16.5 C31.5 20 28.8 22.8 25.5 23.3 V33.5 C25.5 34.33 24.83 35 24 35 C23.17 35 22.5 34.33 22.5 33.5 V23.3 C19.2 22.8 16.5 20 16.5 16.5 V11 Z" fill="#FFFFFF"/>
+  <!-- Center Tine -->
+  <path d="M23 11 C23 10.45 23.45 10 24 10 C24.55 10 25 10.45 25 11 V17.5 C25 18.05 24.55 18.5 24 18.5 C23.45 18.5 23 18.05 23 17.5 V11 Z" fill="#FFFFFF"/>
+</svg>

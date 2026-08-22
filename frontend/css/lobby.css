@@ -29,10 +29,34 @@ body {
     gap: 1rem;
 }
 
+.lobby-brand-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.lobby-logo-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+}
+
+.lobby-header-logo {
+    width: 170px;
+    height: auto;
+    display: block;
+    transition: transform 0.2s ease;
+}
+
+.lobby-header-logo:hover {
+    transform: scale(1.03);
+}
+
 .lobby-header h1 {
     font-family: 'Poppins', sans-serif;
     color: #ff6347;
-    font-size: 2.5rem;
+    font-size: 2.2rem;
     margin: 0;
 }
 

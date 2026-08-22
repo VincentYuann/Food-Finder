@@ -18,10 +18,30 @@ body {
     margin-bottom: 2rem;
 }
 
+.search-brand {
+    margin-bottom: 0.75rem;
+}
+
+.search-brand a {
+    display: inline-block;
+}
+
+.header-logo {
+    width: 220px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+    transition: transform 0.2s ease;
+}
+
+.header-logo:hover {
+    transform: scale(1.03);
+}
+
 .search-header h1 {
     font-family: 'Poppins', sans-serif;
     color: #ff6347;
-    font-size: 2.5rem;
+    font-size: 2.2rem;
     margin: 0;
 }
 
@@ -62,7 +82,8 @@ body {
 }
 
 .control-group input[type="text"],
-.control-group input[type="number"] {
+.control-group input[type="number"],
+.control-group select {
     width: 100%;
     padding: 0.8rem 1rem;
     border: 1px solid #ddd;
@@ -70,9 +91,11 @@ body {
     font-size: 1rem;
     font-family: 'Lato', sans-serif;
     transition: border-color 0.3s, box-shadow 0.3s;
+    background-color: #fff;
 }
 
-.control-group input:focus {
+.control-group input:focus,
+.control-group select:focus {
     outline: none;
     border-color: #ff6347;
     box-shadow: 0 0 0 3px rgba(255, 99, 71, 0.2);
