@@ -35,7 +35,7 @@ async function purgeStaleCache() {
     } catch (error) {
         console.error('? Failed to purge cache:', error);
     } finally {
-        await prisma.();
+        await prisma.$disconnect();
     }
 }
 

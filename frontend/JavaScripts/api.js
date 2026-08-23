@@ -56,3 +56,11 @@ export function escapeHtml(value) {
 export function redirectToLogin() {
     window.location.replace('/login.html');
 }
+
+export function getImageUrl(url) {
+    if (!url) return '';
+    if (url.startsWith('/api/')) {
+        return `${API_BASE_URL}${url}`;
+    }
+    return url;
+}

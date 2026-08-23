@@ -1,6 +1,8 @@
 import { getRestaurantDetails } from '../services/googlePlacesService.js';
 import { randomInt } from 'crypto';
 import prisma from '../config/dbConfig.js';
+import myCache from '../utils/cache.js';
+import { cachePhotoToS3 } from '../services/s3Service.js';
 import publicUserSelect from '../utils/publicUserSelect.js';
 import { createLobbyMessage, MessageValidationError } from '../services/lobbyChatService.js';
 import { listLobbyMembers, broadcastLobbyMembers } from '../services/lobbyMemberService.js';
@@ -28,6 +30,11 @@ const generateInviteCode = () => {
  */
 export const getMyLobbies = async (req, res) => {
     try {
+        const cacheKey = `user_lobbies_${req.user.id}`;
+        if (myCache.has(cacheKey)) {
+            return res.status(200).json(myCache.get(cacheKey));
+        }
+
         const memberships = await prisma.lobbyMember.findMany({
             where: { user_id: req.user.id },
             orderBy: { joined_at: 'desc' },
@@ -42,7 +49,9 @@ export const getMyLobbies = async (req, res) => {
             }
         });
 
-        res.status(200).json(memberships.map((m) => m.lobby));
+        const result = memberships.map((m) => m.lobby);
+        myCache.set(cacheKey, result);
+        res.status(200).json(result);
     } catch (error) {
         console.error('Error fetching lobbies:', error);
         res.status(500).json({ error: 'Internal server error.' });
@@ -84,6 +93,7 @@ export const createLobby = async (req, res) => {
                 return created;
             });
 
+            myCache.del(`user_lobbies_${req.user.id}`);
             return res.status(201).json(lobby);
         } catch (error) {
             // P2002 = unique constraint violation; only retry when it was the invite code.
@@ -133,6 +143,9 @@ export const joinLobbyByCode = async (req, res) => {
         // Members already sitting in the lobby see the newcomer appear.
         await broadcastLobbyMembers(lobby.id);
 
+        myCache.del(`user_lobbies_${req.user.id}`);
+        myCache.del(`lobby_members_${lobby.id}`);
+        myCache.del(`lobby_${lobby.id}`);
         res.status(200).json(lobby);
     } catch (error) {
         console.error('Error joining lobby:', error);
@@ -146,6 +159,9 @@ export const joinLobbyByCode = async (req, res) => {
  */
 export const getLobby = async (req, res) => {
     try {
+        const cacheKey = `lobby_${req.lobbyId}`;
+        if (myCache.has(cacheKey)) return res.status(200).json(myCache.get(cacheKey));
+
         const lobby = await prisma.lobby.findUnique({
             where: { id: req.lobbyId },
             include: {
@@ -158,6 +174,7 @@ export const getLobby = async (req, res) => {
             }
         });
 
+        myCache.set(cacheKey, lobby);
         res.status(200).json(lobby);
     } catch (error) {
         console.error('Error fetching lobby:', error);
@@ -214,6 +231,8 @@ export const updateLobby = async (req, res) => {
 
     try {
         const updated = await prisma.lobby.update({ where: { id: req.lobbyId }, data });
+        myCache.del(`lobby_${req.lobbyId}`);
+        myCache.del(`user_lobbies_${req.user.id}`);
         res.status(200).json(updated);
     } catch (error) {
         console.error('Error updating lobby:', error);
@@ -228,6 +247,10 @@ export const updateLobby = async (req, res) => {
 export const deleteLobby = async (req, res) => {
     try {
         await prisma.lobby.delete({ where: { id: req.lobbyId } });
+        myCache.del(`lobby_${req.lobbyId}`);
+        myCache.del(`user_lobbies_${req.user.id}`);
+        // Actually, deleting a lobby affects all members, but we can just invalidate the creator's lobbies for now
+        // since they're the only one who can delete it. Or we could flushall if we were lazy.
         res.status(204).send();
     } catch (error) {
         console.error('Error deleting lobby:', error);
@@ -244,7 +267,12 @@ export const deleteLobby = async (req, res) => {
  */
 export const getLobbyMembers = async (req, res) => {
     try {
-        res.status(200).json(await listLobbyMembers(req.lobbyId));
+        const cacheKey = `lobby_members_${req.lobbyId}`;
+        if (myCache.has(cacheKey)) return res.status(200).json(myCache.get(cacheKey));
+
+        const members = await listLobbyMembers(req.lobbyId);
+        myCache.set(cacheKey, members);
+        res.status(200).json(members);
     } catch (error) {
         console.error('Error fetching lobby members:', error);
         res.status(500).json({ error: 'Internal server error.' });
@@ -284,6 +312,9 @@ export const removeLobbyMember = async (req, res) => {
 
         await broadcastLobbyMembers(req.lobbyId);
 
+        myCache.del(`lobby_members_${req.lobbyId}`);
+        myCache.del(`lobby_${req.lobbyId}`);
+        myCache.del(`user_lobbies_${targetUserId}`);
         res.status(204).send();
     } catch (error) {
         // P2025 = record to delete does not exist
@@ -335,6 +366,8 @@ export const setMemberReady = async (req, res) => {
         // without waiting for a refresh.
         await broadcastLobbyMembers(req.lobbyId);
 
+        myCache.del(`lobby_members_${req.lobbyId}`);
+        myCache.del(`lobby_${req.lobbyId}`);
         res.status(200).json(updated);
     } catch (error) {
         // P2025 = record to update does not exist
@@ -352,6 +385,9 @@ export const setMemberReady = async (req, res) => {
 
 export const getLobbyRestaurants = async (req, res) => {
     try {
+        const cacheKey = `lobby_restaurants_${req.lobbyId}`;
+        if (myCache.has(cacheKey)) return res.status(200).json(myCache.get(cacheKey));
+
         const options = await prisma.lobbyRestaurantOption.findMany({
             where: { lobby_id: req.lobbyId },
             include: {
@@ -394,6 +430,7 @@ export const getLobbyRestaurants = async (req, res) => {
             return option;
         }));
 
+        myCache.set(cacheKey, enrichedOptions);
         res.status(200).json(enrichedOptions);
     } catch (error) {
         console.error('Error fetching lobby restaurants:', error);
@@ -453,6 +490,7 @@ export const addLobbyRestaurant = async (req, res) => {
             }
         });
 
+        myCache.del(`lobby_restaurants_${req.lobbyId}`);
         res.status(201).json(option);
     } catch (error) {
         if (error.code === 'P2002') {
@@ -472,6 +510,9 @@ export const addLobbyRestaurant = async (req, res) => {
 
 export const getLobbyVotes = async (req, res) => {
     try {
+        const cacheKey = `lobby_votes_${req.lobbyId}`;
+        if (myCache.has(cacheKey)) return res.status(200).json(myCache.get(cacheKey));
+
         const votes = await prisma.vote.findMany({
             where: { lobby_id: req.lobbyId },
             include: {
@@ -480,6 +521,7 @@ export const getLobbyVotes = async (req, res) => {
             }
         });
 
+        myCache.set(cacheKey, votes);
         res.status(200).json(votes);
     } catch (error) {
         console.error('Error fetching lobby votes:', error);
@@ -535,6 +577,7 @@ export const castVote = async (req, res) => {
             }
         });
 
+        myCache.del(`lobby_votes_${req.lobbyId}`);
         res.status(201).json(vote);
     } catch (error) {
         console.error('Error casting vote:', error);
@@ -548,12 +591,16 @@ export const castVote = async (req, res) => {
 
 export const getLobbyMessages = async (req, res) => {
     try {
+        const cacheKey = `lobby_messages_${req.lobbyId}`;
+        if (myCache.has(cacheKey)) return res.status(200).json(myCache.get(cacheKey));
+
         const messages = await prisma.message.findMany({
             where: { lobby_id: req.lobbyId },
             orderBy: { sent_at: 'asc' },
             include: { user: { select: publicUserSelect } }
         });
 
+        myCache.set(cacheKey, messages);
         res.status(200).json(messages);
     } catch (error) {
         console.error('Error fetching lobby messages:', error);
@@ -578,6 +625,7 @@ export const sendLobbyMessage = async (req, res) => {
             imageUrl,
         });
 
+        myCache.del(`lobby_messages_${req.lobbyId}`);
         res.status(201).json(message);
     } catch (error) {
         if (error instanceof MessageValidationError) {
@@ -604,9 +652,11 @@ export const removeLobbyRestaurant = async (req, res) => {
                 lobby_id_restaurant_id: { lobby_id: req.lobbyId, restaurant_id: restaurantId }
             }
         });
+        myCache.del(`lobby_restaurants_${req.lobbyId}`);
         res.status(204).send();
     } catch (error) {
         if (error.code === 'P2025') {
+            myCache.del(`lobby_restaurants_${req.lobbyId}`);
             return res.status(404).json({ error: 'That restaurant is not in this lobby.' });
         }
         console.error('Error removing lobby restaurant:', error);

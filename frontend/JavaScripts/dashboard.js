@@ -2,7 +2,7 @@
 // Depends on api.js (API_BASE_URL, apiFetch, errorFrom, escapeHtml, redirectToLogin).
 import {
     apiFetch, errorFrom, escapeHtml, redirectToLogin
-} from './api.js';
+, getImageUrl } from './api.js';
 import { openDetailsModal } from './modal.js';
 
 // The signed-in user, needed to tell whether they host a given lobby.
@@ -65,7 +65,7 @@ function savedRestaurantCard(restaurant) {
         : '';
         
     const image = restaurant.photo_url
-        ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; margin-right: 15px;" />`
+        ? `<img src="${escapeHtml(getImageUrl(restaurant.photo_url))}" alt="${escapeHtml(restaurant.name)}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; margin-right: 15px;" />`
         : `<div style="width: 60px; height: 60px; background: #eee; border-radius: 8px; margin-right: 15px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📸</div>`;
 
     return `

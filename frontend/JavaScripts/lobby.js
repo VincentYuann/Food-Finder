@@ -3,7 +3,7 @@
 // Depends on api.js (API_BASE_URL, apiFetch, errorFrom, escapeHtml, redirectToLogin).
 import {
     API_BASE_URL, apiFetch, errorFrom, escapeHtml, redirectToLogin
-} from './api.js';
+, getImageUrl } from './api.js';
 
 let currentLobby = null;
 let currentUser = null;
@@ -275,7 +275,7 @@ function restaurantCard(option) {
         ? `<div class="price-level">${'$'.repeat(restaurant.price_level)}</div>`
         : '';
     const image = restaurant.photo_url
-        ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}"/>`
+        ? `<img src="${escapeHtml(getImageUrl(restaurant.photo_url))}" alt="${escapeHtml(restaurant.name)}"/>`
         : NO_PHOTO_HTML;
     const openNow = restaurant.is_open !== null && restaurant.is_open !== undefined
         ? `<div class="is-open ${restaurant.is_open ? 'open' : 'closed'}">
@@ -589,7 +589,7 @@ async function loadLobbySavedRestaurants() {
 function renderAddCard(restaurant) {
     const placeId = escapeHtml(restaurant.api_place_id);
     const image = restaurant.photo_url
-        ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}"/>`
+        ? `<img src="${escapeHtml(getImageUrl(restaurant.photo_url))}" alt="${escapeHtml(restaurant.name)}"/>`
         : NO_PHOTO_HTML;
 
     const rating = restaurant.rating ? `<span style="font-size: 0.8rem; color: #666;">★ ${parseFloat(restaurant.rating).toFixed(1)}</span>` : '';

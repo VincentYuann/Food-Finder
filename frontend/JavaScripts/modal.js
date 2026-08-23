@@ -1,4 +1,4 @@
-import { apiFetch, escapeHtml } from './api.js';
+import { apiFetch, escapeHtml , getImageUrl } from './api.js';
 
 // Inject modal HTML into the body once
 const modalHTML = `
@@ -79,7 +79,7 @@ function checkIfOpen(openingHoursArray) {
 }
 
 function buildDetailsHTML(details) {
-    const photo = details.photo_url ? `<img src="${escapeHtml(details.photo_url)}" alt="${escapeHtml(details.name)}" class="modal-hero-img">` : '';
+    const photo = details.photo_url ? `<img src="${escapeHtml(getImageUrl(details.photo_url))}" alt="${escapeHtml(details.name)}" class="modal-hero-img">` : '';
     const rating = details.rating ? `★ ${parseFloat(details.rating).toFixed(1)} (${details.user_rating_count || 0} reviews)` : '';
     
     // Descriptive Price Level

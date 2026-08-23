@@ -1,4 +1,6 @@
 import prisma from '../config/dbConfig.js';
+import myCache from '../utils/cache.js';
+import { cachePhotoToS3, getPresignedUrl } from '../services/s3Service.js';
 import {
     searchNearbyRestaurants,
     getRestaurantDetails,
@@ -14,11 +16,34 @@ const cacheRestaurantsBackground = async (restaurants) => {
     if (!restaurants || restaurants.length === 0) return;
 
     try {
+        const enrichedRestaurants = await Promise.all(restaurants.map(async (r) => {
+            let originalProxyUrl = r.photo_url;
+            let pUrl = originalProxyUrl;
+            if (pUrl && pUrl.includes('/api/restaurants/photo/')) {
+                const photoName = decodeURIComponent(pUrl.split('/api/restaurants/photo/')[1].split('?')[0]);
+                if (photoName.startsWith('s3:')) return r;
+                const googleUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=400&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+                const s3Url = await cachePhotoToS3(googleUrl);
+                pUrl = (s3Url === googleUrl) ? originalProxyUrl : `/api/restaurants/photo/${encodeURIComponent(s3Url)}`;
+            } else if (pUrl && pUrl.includes('googleapis.com')) {
+                const s3Url = await cachePhotoToS3(pUrl);
+                pUrl = (s3Url === pUrl) ? originalProxyUrl : `/api/restaurants/photo/${encodeURIComponent(s3Url)}`;
+            }
+            return { ...r, photo_url: pUrl };
+        }));
+
         await prisma.$transaction(
-            restaurants.map((restaurant) => prisma.restaurant.upsert({
+            enrichedRestaurants.map((restaurant) => prisma.restaurant.upsert({
                 where: { api_place_id: restaurant.api_place_id },
                 update: { 
                     cached_at: new Date(),
+                    name: restaurant.name,
+                    photo_url: restaurant.photo_url,
+                    address: restaurant.address,
+                    latitude: restaurant.latitude ? parseFloat(restaurant.latitude) : null,
+                    longitude: restaurant.longitude ? parseFloat(restaurant.longitude) : null,
+                    rating: restaurant.rating ? parseFloat(restaurant.rating) : null,
+                    price_level: restaurant.price_level,
                     primary_type: restaurant.primary_type,
                     user_rating_count: restaurant.user_rating_count
                 }, // bump the cache time and update new fields if it already exists
@@ -99,6 +124,10 @@ export const searchText = async (req, res) => {
 
 export const getSavedRestaurants = async (req, res) => {
     try {
+        const cacheKey = `user_saved_restaurants_${req.user.id}`;
+        if (myCache.has(cacheKey)) {
+            return res.json(myCache.get(cacheKey));
+        }
         const savedList = await prisma.savedRestaurant.findMany({
             where: { user_id: req.user.id },
             include: { restaurant: true },
@@ -142,10 +171,31 @@ export const getSavedRestaurants = async (req, res) => {
             };
         }));
 
+        myCache.set(cacheKey, restaurants);
         res.json(restaurants);
     } catch (error) {
         console.error('Error fetching saved restaurants:', error);
         res.status(500).json({ error: 'Failed to fetch saved restaurants' });
+    }
+};
+
+export const getSavedPlaceIds = async (req, res) => {
+    try {
+        const cacheKey = `user_saved_place_ids_${req.user.id}`;
+        if (myCache.has(cacheKey)) {
+            return res.json(myCache.get(cacheKey));
+        }
+
+        const savedList = await prisma.savedRestaurant.findMany({
+            where: { user_id: req.user.id },
+            include: { restaurant: { select: { api_place_id: true } } }
+        });
+        const placeIds = savedList.map(item => item.restaurant.api_place_id);
+        myCache.set(cacheKey, placeIds);
+        res.json(placeIds);
+    } catch (error) {
+        console.error('Error fetching saved place IDs:', error);
+        res.status(500).json({ error: 'Failed to fetch saved place IDs' });
     }
 };
 
@@ -185,7 +235,8 @@ export const saveRestaurant = async (req, res) => {
         await prisma.savedRestaurant.create({
             data: { user_id: req.user.id, restaurant_id: restaurant.id }
         });
-
+        myCache.del(`user_saved_restaurants_${req.user.id}`);
+        myCache.del(`user_saved_place_ids_${req.user.id}`);
         res.status(201).json({ message: 'Saved successfully', restaurant });
     } catch (error) {
         // P2002 = unique constraint violation, i.e. they already saved this one.
@@ -215,6 +266,8 @@ export const unsaveRestaurant = async (req, res) => {
             }
         });
 
+        myCache.del(`user_saved_restaurants_${req.user.id}`);
+        myCache.del(`user_saved_place_ids_${req.user.id}`);
         res.status(204).send();
     } catch (error) {
         console.error('Error unsaving restaurant:', error);
@@ -232,8 +285,7 @@ export const getDetails = async (req, res) => {
         
         // CACHE-ASIDE PATTERN: Check DB first
         const existingRestaurant = await prisma.restaurant.findUnique({
-            where: { api_place_id: placeId },
-            cacheStrategy: { ttl: 60 * 60, swr: 60 * 60 * 24 } // Accelerate Cache: 1 hr TTL, 1 day SWR
+            where: { api_place_id: placeId } // Accelerate Cache: 1 hr TTL, 1 day SWR
         });
 
         const oneWeekAgo = new Date();
@@ -290,10 +342,14 @@ export const getDetails = async (req, res) => {
 
 export const getAllRestaurants = async (req, res) => {
     try {
+        const cacheKey = 'all_restaurants';
+        if (myCache.has(cacheKey)) {
+            return res.json(myCache.get(cacheKey));
+        }
         const restaurants = await prisma.restaurant.findMany({
             orderBy: { cached_at: 'desc' },
             take: 50, // keep the payload sane; this is the whole shared cache
-            cacheStrategy: { ttl: 60 * 15, swr: 60 * 60 } // 15 mins TTL, 1 hr SWR
+             // 15 mins TTL, 1 hr SWR
         });
 
         res.json(restaurants);
@@ -305,15 +361,19 @@ export const getAllRestaurants = async (req, res) => {
 
 export const getRestaurantById = async (req, res) => {
     try {
+        const cacheKey = `restaurant_by_id_${req.params.id}`;
+        if (myCache.has(cacheKey)) {
+            return res.json(myCache.get(cacheKey));
+        }
         const restaurant = await prisma.restaurant.findUnique({
-            where: { id: parseInt(req.params.id, 10) },
-            cacheStrategy: { ttl: 60 * 60, swr: 60 * 60 * 24 } // 1 hr TTL, 1 day SWR
+            where: { id: parseInt(req.params.id, 10) } // 1 hr TTL, 1 day SWR
         });
 
         if (!restaurant) {
             return res.status(404).json({ error: 'Restaurant not found' });
         }
 
+        myCache.set(cacheKey, restaurant);
         res.json(restaurant);
     } catch (error) {
         console.error('Error fetching restaurant:', error);
@@ -340,5 +400,49 @@ export const removeLobbyRestaurant = async (req, res) => {
         }
         console.error('Error removing lobby restaurant:', error);
         res.status(500).json({ error: 'Internal server error.' });
+    }
+};
+
+
+export const proxyPhoto = async (req, res) => {
+    try {
+        const photoName = req.params.photoName;
+        const cacheKey = `photo_redirect_${photoName}`;
+
+        if (myCache.has(cacheKey)) {
+            return res.redirect(myCache.get(cacheKey));
+        }
+
+        if (photoName.startsWith('s3:')) {
+            const s3Key = photoName.replace('s3:', '');
+            const presignedUrl = await getPresignedUrl(s3Key);
+            if (presignedUrl) {
+                myCache.set(cacheKey, presignedUrl, 7000);
+                return res.redirect(presignedUrl);
+            }
+            return res.status(404).send('S3 photo not found');
+        }
+
+        const maxWidth = req.query.maxWidth || 400;
+        const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+        const googleUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${maxWidth}&key=${apiKey}`;
+
+        const axios = (await import('axios')).default;
+        const response = await axios.get(googleUrl, {
+            maxRedirects: 0,
+            validateStatus: status => status >= 200 && status < 400
+        });
+
+        if (response.status === 302 && response.headers.location) {
+            const redirectUrl = response.headers.location;
+            myCache.set(cacheKey, redirectUrl);
+            return res.redirect(redirectUrl);
+        }
+
+        res.set('Content-Type', response.headers['content-type']);
+        return res.send(response.data);
+    } catch (error) {
+        console.error('Photo proxy error:', error.message);
+        res.status(500).send('Failed to load photo');
     }
 };

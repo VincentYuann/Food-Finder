@@ -2,7 +2,7 @@
 // Depends on api.js (API_BASE_URL, apiFetch, escapeHtml).
 import {
     apiFetch, escapeHtml
-} from './api.js';
+, getImageUrl } from './api.js';
 import { openDetailsModal } from './modal.js';
 
 let currentLocation = null;
@@ -39,7 +39,7 @@ function restaurantCard(restaurant) {
     const isSaved = restaurant.saved || savedPlaceIds.has(restaurant.api_place_id);
 
     const image = restaurant.photo_url
-        ? `<img src="${escapeHtml(restaurant.photo_url)}" alt="${escapeHtml(restaurant.name)}"/>`
+        ? `<img src="${escapeHtml(getImageUrl(restaurant.photo_url))}" alt="${escapeHtml(restaurant.name)}"/>`
         : NO_PHOTO_HTML;
     const rating = restaurant.rating
         ? `<div class="rating">

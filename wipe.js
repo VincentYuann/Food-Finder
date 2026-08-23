@@ -1,0 +1,2 @@
+import prisma from './config/dbConfig.js';
+async function wipe() { const bad = await prisma.restaurant.updateMany({ where: { photo_url: { contains: 't3.storage.dev' } }, data: { photo_url: null, name: null } }); console.log('Wiped:', bad.count); process.exit(0); } wipe();

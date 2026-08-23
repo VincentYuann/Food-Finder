@@ -18,7 +18,9 @@ const placesClient = axios.create({
  * @returns {string} - Full photo URL
  */
 function getPhotoUrl(photoName, maxWidth = 400) {
-    return `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${maxWidth}&key=${GOOGLE_PLACES_API_KEY}`;
+    // Generate a proxy URL so the API key never reaches the frontend.
+    // The photoName looks like "places/ChIJ.../photos/A...". We URL-encode it.
+    return `/api/restaurants/photo/${encodeURIComponent(photoName)}?maxWidth=${maxWidth}`;
 }
 
 /**
