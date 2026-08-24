@@ -17,7 +17,7 @@ const NO_PHOTO_HTML = '<div class="no-image">📷 No photo available</div>';
 
 function showMessage(text, type = 'info') {
     const statusMessage = document.getElementById('status-message');
-    statusMessage.textContent = text;
+    statusMessage.innerHTML = text;
     statusMessage.className = `status-message status-${type}`;
     statusMessage.style.display = text ? 'block' : 'none';
 }
@@ -229,7 +229,7 @@ async function saveRestaurant(placeId, buttonElement) {
         } else {
             restaurant.saved = true;
             savedPlaceIds.add(restaurant.api_place_id);
-            showMessage(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg> ${restaurant.name} saved!`, 'success');
+            showMessage(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg> ${escapeHtml(restaurant.name)} saved!`, 'success');
         }
     } catch (error) {
         console.error('Save error:', error);
