@@ -73,7 +73,8 @@ body {
     border-top: 1px solid #f0f0f0;
     display: flex;
     flex-wrap: wrap;
-    gap: 1.5rem;
+    align-items: center;
+    gap: 1rem;
     font-size: 0.9rem;
     color: #666;
 }
@@ -81,8 +82,63 @@ body {
     background: #f9f9f9;
     padding: 0.4rem 0.8rem;
     border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
 }
 .meta-item strong { color: #333; }
+
+.meta-item-invite {
+    background: #fff5f3;
+    border: 1px solid #ffd8d1;
+    padding: 0.3rem 0.6rem;
+    border-radius: 8px;
+}
+
+.invite-code-pill {
+    font-family: 'Poppins', monospace, sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #ff6347;
+    letter-spacing: 0.08em;
+    background: #fff;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #ffccb4;
+    user-select: all;
+}
+
+.copy-invite-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: #ff6347;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 0.3rem 0.65rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: 'Poppins', sans-serif;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.copy-invite-btn:hover {
+    background: #e5533d;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(255, 99, 71, 0.25);
+}
+
+.copy-invite-btn:focus-visible {
+    outline: 2px solid #ff6347;
+    outline-offset: 2px;
+}
+
+.copy-invite-btn.copied {
+    background: #166534;
+    color: #fff;
+}
 
 /* Layout */
 .lobby-layout {

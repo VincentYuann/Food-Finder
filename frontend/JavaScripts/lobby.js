@@ -112,11 +112,69 @@ async function loadLobbyVotes() {
 function renderLobbyHeader(lobby) {
     document.getElementById('lobby-name').textContent = lobby.name || 'Untitled Lobby';
     const isCreator = currentUser && lobby.creator && currentUser.id === lobby.creator.id;
+    const inviteCode = lobby.invite_code || '';
+
     document.getElementById('lobby-meta-info').innerHTML = `
         <div class="meta-item">Status: <strong>${escapeHtml(lobby.status)}</strong></div>
-        <div class="meta-item">Invite Code: <strong>${escapeHtml(lobby.invite_code || '—')}</strong></div>
+        <div class="meta-item meta-item-invite">
+            <span>Invite Code:</span>
+            <code class="invite-code-pill" id="invite-code-display">${escapeHtml(inviteCode || '—')}</code>
+            ${inviteCode ? `
+            <button type="button" id="copy-invite-btn" class="copy-invite-btn" aria-label="Copy lobby invite link and code" title="Copy invite link">
+                <svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+                <span id="copy-btn-label">Copy Link</span>
+            </button>
+            ` : ''}
+        </div>
         <div class="meta-item">Created by: <strong>@${escapeHtml(lobby.creator.username)}</strong></div>
     `;
+
+    const copyBtn = document.getElementById('copy-invite-btn');
+    if (copyBtn && inviteCode) {
+        copyBtn.addEventListener('click', async () => {
+            const joinUrl = `${window.location.origin}/index.html?join=${encodeURIComponent(inviteCode)}`;
+            const textToCopy = joinUrl;
+
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(textToCopy);
+                } else {
+                    const tempInput = document.createElement('textarea');
+                    tempInput.value = textToCopy;
+                    tempInput.style.position = 'fixed';
+                    tempInput.style.opacity = '0';
+                    document.body.appendChild(tempInput);
+                    tempInput.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tempInput);
+                }
+
+                copyBtn.classList.add('copied');
+                copyBtn.innerHTML = `
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>Copied!</span>
+                `;
+
+                setTimeout(() => {
+                    copyBtn.classList.remove('copied');
+                    copyBtn.innerHTML = `
+                        <svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        <span>Copy Link</span>
+                    `;
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy', err);
+            }
+        });
+    }
 
     if (isCreator) {
         if (currentLobby.status === 'closed') {

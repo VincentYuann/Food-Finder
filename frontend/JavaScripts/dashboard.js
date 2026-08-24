@@ -161,6 +161,9 @@ function lobbyActionButton(lobby, name) {
 
 function lobbyCard(lobby) {
     const name = lobby.name || 'Untitled Lobby';
+    const inviteCodeHtml = lobby.invite_code 
+        ? `<div class="meta-item">Code: <strong style="letter-spacing: 0.05em; color: #ff6347;">${escapeHtml(lobby.invite_code)}</strong></div>`
+        : '';
 
     return `
         <li class="dashboard-card">
@@ -170,6 +173,7 @@ function lobbyCard(lobby) {
                     <div class="meta-item status status-${escapeHtml(lobby.status.toLowerCase())}">
                         Status: <strong>${escapeHtml(lobby.status)}</strong>
                     </div>
+                    ${inviteCodeHtml}
                 </div>
             </div>
             <div class="card-actions">
@@ -329,6 +333,18 @@ function wireUpListeners() {
 
 document.addEventListener('DOMContentLoaded', async () => {
     wireUpListeners();
+
+    // Check for join code in URL params (e.g. ?join=CODE or ?code=CODE)
+    const urlParams = new URLSearchParams(window.location.search);
+    const joinCode = urlParams.get('join') || urlParams.get('code');
+    if (joinCode) {
+        const joinInput = document.getElementById('join-lobby-code');
+        if (joinInput) {
+            joinInput.value = joinCode.trim().toUpperCase();
+            joinInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            joinInput.focus();
+        }
+    }
 
     // Profile first: the lobby cards need to know who the signed-in user is.
     await loadProfile();
