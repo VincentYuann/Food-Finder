@@ -4,6 +4,8 @@
 import {
     API_BASE_URL, apiFetch, errorFrom, escapeHtml, redirectToLogin
 , getImageUrl } from './api.js';
+import { confirmModal, showToast } from './ui-feedback.js';
+import { openDetailsModal } from './modal.js';
 
 let currentLobby = null;
 let currentUser = null;
@@ -54,8 +56,10 @@ async function loadLobbyDetails() {
         if (currentOptions.length > 0) renderRestaurants();
     } catch (error) {
         console.error(error);
-        alert(error.message);
-        window.location.replace('/index.html');
+        showToast(error.message || 'Failed to load lobby.', 'error');
+        setTimeout(() => {
+            window.location.replace('/index.html');
+        }, 1200);
     }
 }
 
@@ -289,7 +293,7 @@ async function toggleMyReady(newReady) {
         await loadLobbyMembers();
     } catch (error) {
         console.error('Failed to update ready state', error);
-        alert(error.message || 'Could not update ready state.');
+        showToast(error.message || 'Could not update ready state.', 'error');
     }
 }
 
@@ -298,10 +302,19 @@ async function closeLobby() {
     const isVotingNext = currentLobby.status === 'active';
     const nextStatus = isVotingNext ? 'voting' : 'closed';
     const promptMsg = isVotingNext 
-        ? 'Are you ready to start voting?' 
-        : 'Close the lobby for everyone? This cannot be undone.';
-        
-    if (!confirm(promptMsg)) return;
+        ? 'Are you ready to start voting on the shortlisted restaurants?' 
+        : 'Close the lobby for everyone? This will conclude voting and crown the winning restaurant.';
+
+    const confirmed = await confirmModal({
+        title: isVotingNext ? 'Start Group Voting' : 'Close Lobby',
+        message: promptMsg,
+        confirmText: isVotingNext ? 'Start Voting' : 'Close Lobby',
+        cancelText: 'Cancel',
+        confirmClass: isVotingNext ? 'btn-primary' : 'btn-danger'
+    });
+
+    if (!confirmed) return;
+
     try {
         const response = await apiFetch(`/api/lobbies/${currentLobbyId}`, {
             method: 'PATCH',
@@ -311,18 +324,23 @@ async function closeLobby() {
         if (!response.ok) {
             throw new Error(await errorFrom(response, 'Could not update the lobby'));
         }
+        showToast(isVotingNext ? 'Voting has started!' : 'Lobby closed.', 'success');
         // show new status
         await loadLobbyDetails();
         await loadLobbyMembers();
     } catch (error) {
         console.error('Failed to update lobby', error);
-        alert(error.message || 'Could not update the lobby.');
+        showToast(error.message || 'Could not update the lobby.', 'error');
     }
 }
 
-function restaurantCard(option) {
+const CROWN_SVG = `<svg class="winner-crown-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 5px;"><polygon points="2 4 5 16 19 16 22 4 16 11 12 4 8 11 2 4"></polygon><line x1="5" y1="20" x2="19" y2="20"></line></svg>`;
+
+function restaurantCard(option, isWinner = false) {
     const { restaurant, adder } = option;
     const isAddedByCurrentUser = currentUser && adder && currentUser.id === adder.id;
+    const isClosed = currentLobby && currentLobby.status === 'closed';
+
     const rating = restaurant.rating
         ? `<div class="rating-badge" style="font-size: 0.9rem; font-weight: bold; margin-bottom: 4px; color: #444;">
                <span class="stars"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 2px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span>
@@ -348,17 +366,28 @@ function restaurantCard(option) {
 
     const votesForThis = currentVotes.filter(v => v.restaurant_id === restaurant.id);
     const hasVotedForThis = votesForThis.some(v => currentUser && v.user_id === currentUser.id);
-    const showVotes = currentLobby.status === 'voting' || currentLobby.status === 'closed';
+    const showVotes = currentLobby.status === 'voting' || isClosed;
     const voteBadge = showVotes
         ? `<div style="margin-top: 5px; font-weight: bold; color: #ff6347;">Votes: ${votesForThis.length}</div>`
         : '';
         
-    const voteBtnHtml = showVotes && currentLobby.status !== 'closed'
+    const voteBtnHtml = showVotes && !isClosed
         ? `<button type="button" class="btn ${hasVotedForThis ? 'btn-secondary' : 'btn-primary'}" data-action="vote" data-restaurant-id="${restaurant.id}">${hasVotedForThis ? 'Voted <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-left: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>' : 'Vote'}</button>`
         : '';
 
+    const winnerBadgeHtml = (isClosed && isWinner)
+        ? `<div class="winner-crown-badge">${CROWN_SVG}<span>Tonight's Choice • Winner</span></div>`
+        : '';
+
+    const cardClasses = [
+        'restaurant-card',
+        (isClosed && isWinner) ? 'winning-restaurant-card' : '',
+        (isClosed && !isWinner) ? 'closed-non-winner' : ''
+    ].filter(Boolean).join(' ');
+
     return `
-        <div class="restaurant-card" style="position: relative;">
+        <div class="${cardClasses}" style="position: relative;">
+            ${winnerBadgeHtml}
             ${isAddedByCurrentUser && currentLobby.status === 'active' ? `<button type="button" data-action="remove" data-restaurant-id="${restaurant.id}" title="Remove from Lobby" style="position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; background: white; border: 1px solid #ddd; color: #dc3545; font-size: 20px; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); z-index: 10; padding: 0; line-height: 1;">&times;</button>` : ''}
             <div class="restaurant-image">${image}</div>
             <div class="restaurant-info">
@@ -371,7 +400,7 @@ function restaurantCard(option) {
                 <div class="action-buttons-container" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
                     <div class="action-buttons" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0;">
                         ${voteBtnHtml}
-                        <button type="button" class="btn btn-details" data-action="details" data-place-id="${escapeHtml(restaurant.api_place_id)}">Details</button>
+                        <button type="button" class="btn ${isWinner && isClosed ? 'btn-primary' : 'btn-details'}" data-action="details" data-place-id="${escapeHtml(restaurant.api_place_id)}">${isWinner && isClosed ? 'View Details & Hours' : 'Details'}</button>
                         <button type="button" class="btn btn-save ${isSaved ? 'saved' : ''}" data-action="save-lobby" data-place-id="${escapeHtml(restaurant.api_place_id)}" ${isSaved ? 'disabled' : ''}>${isSaved ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>Saved' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Save'}</button>
                     </div>
                 </div>
@@ -385,9 +414,11 @@ let currentOptions = [];
 function renderRestaurants(options) {
     if (options) currentOptions = options;
     const container = document.getElementById('lobby-restaurants-list');
+    const spotlightContainer = document.getElementById('lobby-winner-spotlight');
     setScrollable(container, currentOptions.length);
 
     if (currentOptions.length === 0) {
+        if (spotlightContainer) spotlightContainer.innerHTML = '';
         container.innerHTML = placeholder(
             'No restaurants have been added yet. Use the "Add from Search" button!',
             '#777'
@@ -395,11 +426,82 @@ function renderRestaurants(options) {
         return;
     }
 
-    container.innerHTML = currentOptions.map(restaurantCard).join('');
+    const isClosed = currentLobby && currentLobby.status === 'closed';
+    let winningOption = null;
+    let maxVotes = -1;
 
-    // Swap in the placeholder if a cached photo URL has gone stale. Done here
-    // rather than with an inline onerror so the fallback markup doesn't have to
-    // survive being escaped into an HTML attribute.
+    if (isClosed) {
+        // Calculate the highest voted option
+        currentOptions.forEach((opt) => {
+            const count = currentVotes.filter(v => v.restaurant_id === opt.restaurant.id).length;
+            if (count > maxVotes) {
+                maxVotes = count;
+                winningOption = opt;
+            }
+        });
+
+        // Hide section controls when closed
+        const sectionControls = document.querySelector('.section-controls');
+        if (sectionControls) sectionControls.style.display = 'none';
+
+        // Render spotlight banner
+        if (spotlightContainer && winningOption) {
+            const r = winningOption.restaurant;
+            const voteCount = currentVotes.filter(v => v.restaurant_id === r.id).length;
+            spotlightContainer.innerHTML = `
+                <div class="winner-spotlight-banner">
+                    <div class="winner-spotlight-left">
+                        <div class="winner-spotlight-icon-wrap">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="2 4 5 16 19 16 22 4 16 11 12 4 8 11 2 4"></polygon>
+                                <line x1="5" y1="20" x2="19" y2="20"></line>
+                            </svg>
+                        </div>
+                        <div class="winner-spotlight-text">
+                            <h4>Tonight's Pick: ${escapeHtml(r.name)}</h4>
+                            <p>The votes are in! With <strong>${voteCount} ${voteCount === 1 ? 'vote' : 'votes'}</strong>, this spot won the group vote.</p>
+                        </div>
+                    </div>
+                    <div class="winner-spotlight-action">
+                        <button type="button" class="btn btn-primary" data-action="details" data-place-id="${escapeHtml(r.api_place_id)}">View Details & Hours</button>
+                    </div>
+                </div>
+            `;
+        }
+    } else {
+        if (spotlightContainer) spotlightContainer.innerHTML = '';
+        const sectionControls = document.querySelector('.section-controls');
+        if (sectionControls) sectionControls.style.display = 'flex';
+    }
+
+    // If closed, sort options so winner is first
+    const displayOptions = [...currentOptions];
+    if (isClosed && winningOption) {
+        displayOptions.sort((a, b) => {
+            if (a.restaurant.id === winningOption.restaurant.id) return -1;
+            if (b.restaurant.id === winningOption.restaurant.id) return 1;
+            const countA = currentVotes.filter(v => v.restaurant_id === a.restaurant.id).length;
+            const countB = currentVotes.filter(v => v.restaurant_id === b.restaurant.id).length;
+            return countB - countA;
+        });
+    }
+
+    container.innerHTML = displayOptions.map(opt => {
+        const isWinner = isClosed && winningOption && opt.restaurant.id === winningOption.restaurant.id;
+        return restaurantCard(opt, isWinner);
+    }).join('');
+
+    // Handle spotlight button click delegation
+    if (spotlightContainer) {
+        const spotlightBtn = spotlightContainer.querySelector('button[data-action="details"]');
+        if (spotlightBtn) {
+            spotlightBtn.addEventListener('click', () => {
+                openDetailsModal(spotlightBtn.dataset.placeId);
+            });
+        }
+    }
+
+    // Swap in the placeholder if a cached photo URL has gone stale.
     container.querySelectorAll('.restaurant-image img').forEach((img) => {
         img.addEventListener('error', () => {
             img.parentElement.innerHTML = NO_PHOTO_HTML;
@@ -577,7 +679,7 @@ async function sendMessage(event) {
     } catch (error) {
         console.error(error);
         input.value = content;
-        alert(error.message || 'Could not send your message. Please try again.');
+        showToast(error.message || 'Could not send your message. Please try again.', 'error');
     }
 }
 
@@ -688,11 +790,12 @@ document.getElementById('lobby-add-container')?.addEventListener('click', async 
 
         btn.textContent = 'Added!';
         btn.classList.replace('btn-primary', 'btn-secondary');
+        showToast('Restaurant added to lobby!', 'success');
 
         await loadLobbyRestaurants();
     } catch (error) {
         console.error(error);
-        alert(error.message);
+        showToast(error.message || 'Failed to add restaurant to lobby.', 'error');
         btn.disabled = false;
         btn.textContent = 'Add to Lobby';
     }
@@ -738,12 +841,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (!response.ok) {
                     throw new Error(await errorFrom(response, 'Failed to cast vote'));
                 }
+                showToast('Vote recorded!', 'success');
                 // Reload votes to update UI
                 await loadLobbyVotes();
                 renderRestaurants(); // update cards
             } catch (error) {
                 console.error(error);
-                alert(error.message);
+                showToast(error.message || 'Failed to cast vote.', 'error');
                 voteBtn.disabled = false;
                 voteBtn.textContent = 'Vote';
             }

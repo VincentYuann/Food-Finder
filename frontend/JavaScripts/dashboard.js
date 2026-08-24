@@ -4,6 +4,7 @@ import {
     apiFetch, errorFrom, escapeHtml, redirectToLogin
 , getImageUrl } from './api.js';
 import { openDetailsModal } from './modal.js';
+import { confirmModal, showToast } from './ui-feedback.js';
 
 // The signed-in user, needed to tell whether they host a given lobby.
 let currentUser = null;
@@ -272,7 +273,27 @@ async function runLobbyAction(button) {
     const { action, lobbyId, lobbyName } = button.dataset;
     const { confirm: askFirst, request } = LOBBY_ACTIONS[action];
 
-    if (!confirm(askFirst(lobbyName))) return;
+    const actionTitles = {
+        close: 'Close Lobby',
+        delete: 'Delete Lobby',
+        leave: 'Leave Lobby'
+    };
+
+    const actionButtonLabels = {
+        close: 'Close Lobby',
+        delete: 'Delete',
+        leave: 'Leave'
+    };
+
+    const confirmed = await confirmModal({
+        title: actionTitles[action] || 'Confirm Action',
+        message: askFirst(lobbyName),
+        confirmText: actionButtonLabels[action] || 'Confirm',
+        cancelText: 'Cancel',
+        confirmClass: action === 'close' ? 'btn-warning' : 'btn-danger'
+    });
+
+    if (!confirmed) return;
 
     showLobbyError('');
     button.disabled = true;
@@ -281,15 +302,19 @@ async function runLobbyAction(button) {
         const response = await request(lobbyId);
 
         if (!response.ok) {
-            showLobbyError(await errorFrom(response, 'That action did not go through.'));
+            const errorMsg = await errorFrom(response, 'That action did not go through.');
+            showLobbyError(errorMsg);
+            showToast(errorMsg, 'error');
             button.disabled = false;
             return;
         }
 
+        showToast(`Lobby action completed.`, 'success');
         await loadLobbies();
     } catch (error) {
         console.error(`Failed to ${action} lobby`, error);
         showLobbyError('Server error. Please try again.');
+        showToast('Server error. Please try again.', 'error');
         button.disabled = false;
     }
 }

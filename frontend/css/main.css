@@ -137,3 +137,121 @@ body {
     border: 0 !important;
 }
 
+/* ========================================== */
+/*           FEEDBACK & TOAST STYLES          */
+/* ========================================== */
+.toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: calc(100vw - 48px);
+    pointer-events: none;
+}
+
+.toast-pill {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-family: 'Lato', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 500;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    animation: toastSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+@keyframes toastSlideUp {
+    from { opacity: 0; transform: translateY(12px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.toast-hiding {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+}
+
+.toast-info {
+    background: #ffffff;
+    border: 1px solid #ffd8d1;
+    color: #333;
+}
+.toast-info .toast-icon { color: #ff6347; }
+
+.toast-success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+}
+.toast-success .toast-icon { color: #16a34a; }
+
+.toast-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+}
+.toast-error .toast-icon { color: #dc2626; }
+
+.toast-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.toast-text {
+    flex-grow: 1;
+}
+
+.toast-close {
+    background: transparent;
+    border: none;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.6;
+    padding: 0 0 0 8px;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    transition: opacity 0.15s;
+}
+.toast-close:hover { opacity: 1; }
+
+/* Confirmation Modal Specifics */
+.confirmation-modal-content {
+    max-width: 440px;
+    padding: 24px;
+}
+
+.confirm-modal-header h3 {
+    margin: 0 0 10px 0;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1.3rem;
+    color: #111;
+}
+
+.confirm-modal-body p {
+    margin: 0 0 20px 0;
+    color: #555;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.confirm-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.confirm-modal-actions button {
+    padding: 8px 16px;
+    font-size: 0.95rem;
+}
+
