@@ -2,9 +2,9 @@ import { apiFetch, escapeHtml , getImageUrl } from './api.js';
 
 // Inject modal HTML into the body once
 const modalHTML = `
-<div id="restaurant-details-modal" class="modal-overlay" style="display: none;">
+<div id="restaurant-details-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-restaurant-name" aria-hidden="true" style="display: none;">
     <div class="modal-content">
-        <button class="modal-close" aria-label="Close modal">&times;</button>
+        <button class="modal-close" aria-label="Close details modal">&times;</button>
         <div id="modal-body">
             <!-- Content will be injected here -->
         </div>
@@ -17,13 +17,60 @@ const modal = document.getElementById('restaurant-details-modal');
 const modalBody = document.getElementById('modal-body');
 const closeBtn = modal.querySelector('.modal-close');
 
-closeBtn.addEventListener('click', () => {
+let previouslyFocusedElement = null;
+
+export function closeDetailsModal() {
+    if (!modal || modal.style.display === 'none') return;
     modal.style.display = 'none';
-});
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    
+    if (previouslyFocusedElement && typeof previouslyFocusedElement.focus === 'function') {
+        previouslyFocusedElement.focus();
+    }
+}
+
+closeBtn.addEventListener('click', closeDetailsModal);
 
 modal.addEventListener('click', (e) => {
     if (e.target === modal) {
-        modal.style.display = 'none';
+        closeDetailsModal();
+    }
+});
+
+// Keyboard accessibility: Escape to close and Tab focus trapping
+window.addEventListener('keydown', (e) => {
+    if (!modal || modal.style.display === 'none') return;
+
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        closeDetailsModal();
+        return;
+    }
+
+    if (e.key === 'Tab') {
+        const focusableSelectors = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+        const focusables = Array.from(modal.querySelectorAll(focusableSelectors));
+        
+        if (focusables.length === 0) {
+            e.preventDefault();
+            return;
+        }
+
+        const firstFocusable = focusables[0];
+        const lastFocusable = focusables[focusables.length - 1];
+
+        if (e.shiftKey) {
+            if (document.activeElement === firstFocusable || !modal.contains(document.activeElement)) {
+                e.preventDefault();
+                lastFocusable.focus();
+            }
+        } else {
+            if (document.activeElement === lastFocusable || !modal.contains(document.activeElement)) {
+                e.preventDefault();
+                firstFocusable.focus();
+            }
+        }
     }
 });
 
@@ -127,7 +174,7 @@ function buildDetailsHTML(details) {
     return `
         ${photo}
         <div class="modal-header">
-            <h2>${escapeHtml(details.name)}</h2>
+            <h2 id="modal-restaurant-name">${escapeHtml(details.name)}</h2>
             <div class="modal-meta">${rating} ${rating && price ? '<span class="meta-separator">•</span>' : ''} ${price}</div>
             <div class="modal-tags">${cuisine} ${openStatus}</div>
         </div>
@@ -140,8 +187,14 @@ function buildDetailsHTML(details) {
 }
 
 export async function openDetailsModal(placeId) {
+    previouslyFocusedElement = document.activeElement;
     modalBody.innerHTML = `<div class="spinner" style="margin: 40px auto; display: block;"></div>`;
+    modal.setAttribute('aria-hidden', 'false');
     modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Focus the close button initially
+    if (closeBtn) closeBtn.focus();
 
     try {
         const response = await apiFetch(`/api/restaurants/details/${placeId}`);

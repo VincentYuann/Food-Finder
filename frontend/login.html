@@ -26,8 +26,11 @@
         <div id="login-section">
             <h3>Login</h3>
             <form id="login-form">
-                <input type="text" id="login-identifier" placeholder="Email or Username" required>
-                <input type="password" id="login-password" placeholder="Password" required>
+                <label for="login-identifier" class="visually-hidden">Email or Username</label>
+                <input type="text" id="login-identifier" placeholder="Email or Username" autocomplete="username" required>
+                
+                <label for="login-password" class="visually-hidden">Password</label>
+                <input type="password" id="login-password" placeholder="Password" autocomplete="current-password" required>
                 <button type="submit">Log In</button>
             </form>
             <p>Don't have an account? <button id="show-register">Register here</button></p>
@@ -37,9 +40,14 @@
         <div id="register-section" style="display: none;">
             <h3>Create an Account</h3>
             <form id="register-form">
-                <input type="text" id="register-username" placeholder="Username" required>
-                <input type="email" id="register-email" placeholder="Email" required>
-                <input type="password" id="register-password" placeholder="Password" required>
+                <label for="register-username" class="visually-hidden">Username</label>
+                <input type="text" id="register-username" placeholder="Username" autocomplete="username" required>
+                
+                <label for="register-email" class="visually-hidden">Email</label>
+                <input type="email" id="register-email" placeholder="Email" autocomplete="email" required>
+                
+                <label for="register-password" class="visually-hidden">Password</label>
+                <input type="password" id="register-password" placeholder="Password" autocomplete="new-password" required>
                 <button type="submit">Register</button>
             </form>
             <p>Already have an account? <button id="show-login">Log in here</button></p>

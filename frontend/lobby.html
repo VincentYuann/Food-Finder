@@ -53,6 +53,7 @@
                         <!-- Search UI -->
                         <div id="lobby-search-ui" style="display: none;">
                             <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                                <label for="lobby-search-input" class="visually-hidden">Search for food in lobby</label>
                                 <input type="text" id="lobby-search-input" placeholder="Search for food..." style="flex-grow: 1; padding: 0.75rem; border: 1px solid #ddd; border-radius: 8px;">
                                 <button id="lobby-search-submit" class="btn btn-primary">Search</button>
                             </div>
@@ -80,6 +81,7 @@
                             <!-- Messages populated by JS -->
                         </div>
                         <form id="chat-form">
+                            <label for="chat-input" class="visually-hidden">Chat message</label>
                             <input type="text" id="chat-input" placeholder="Send a message..." autocomplete="off">
                             <button type="submit" class="btn btn-primary">Send</button>
                         </form>

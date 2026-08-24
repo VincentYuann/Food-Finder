@@ -38,14 +38,16 @@
             <div class="sidebar-section">
                 <h4>Create a Lobby</h4>
                 <form id="create-lobby-form">
-                    <input type="text" id="create-lobby-name" placeholder="New lobby name..." maxlength="100" required>
+                    <label for="create-lobby-name" class="visually-hidden">Lobby Name</label>
+                    <input type="text" id="create-lobby-name" placeholder="New lobby name..." maxlength="100" autocomplete="off" required>
                     <button type="submit" class="btn btn-primary">Create</button>
                 </form>
             </div>
             <div class="sidebar-section">
                 <h4>Join a Lobby</h4>
                 <form id="join-lobby-form">
-                    <input type="text" id="join-lobby-code" placeholder="Lobby invite code..." maxlength="10" required>
+                    <label for="join-lobby-code" class="visually-hidden">Lobby Invite Code</label>
+                    <input type="text" id="join-lobby-code" placeholder="Lobby invite code..." maxlength="10" autocomplete="off" required>
                     <button type="submit" class="btn btn-primary">Join</button>
                 </form>
             </div>

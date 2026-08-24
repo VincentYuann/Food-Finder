@@ -114,3 +114,26 @@ body {
 .modal-hours { list-style: none; padding: 0; margin: 0; font-size: 0.9rem; color: #444; }
 .modal-hours li { margin-bottom: 4px; }
 
+/* Accessibility Focus Indicators */
+.modal-close:focus-visible {
+    outline: 3px solid #ff6347;
+    outline-offset: 2px;
+}
+.modal-link:focus-visible {
+    outline: 3px solid #ff6347;
+    outline-offset: 2px;
+}
+
+/* Screen Reader / Accessible Utility */
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
