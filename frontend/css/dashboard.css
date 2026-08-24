@@ -9,10 +9,9 @@ h2, h3, h4 {
 
 h2 {
     color: #ff6347; /* Primary theme color */
-    font-size: 2.2rem;
-    margin-bottom: 2rem;
-    border-bottom: 2px solid #f0f0f0;
-    padding-bottom: 1rem;
+    font-size: 2.4rem;
+    margin-bottom: 1.5rem;
+    font-weight: 700;
 }
 
 h3 {
@@ -34,16 +33,19 @@ h4 {
     max-width: 1400px;
     margin: 0 auto;
     min-height: 100vh;
-    background: #fff;
-    box-shadow: 0 5px 25px rgba(0,0,0,0.05);
+    background: transparent;
+    gap: 2rem;
+    padding: 2rem 1rem;
 }
 
 .sidebar {
     width: 280px;
     flex-shrink: 0;
     padding: 2rem;
-    border-right: 1px solid #eee;
-    background: #fcfcfc;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.05);
+    height: fit-content;
 }
 
 /* Sidebar Brand */
@@ -73,7 +75,7 @@ h4 {
 
 .main-content {
     flex-grow: 1;
-    padding: 2rem 3rem;
+    padding: 0;
 }
 
 /* Sidebar Sections */
@@ -105,10 +107,10 @@ h4 {
 .btn {
     cursor: pointer;
     font-family: 'Poppins', sans-serif;
-    font-weight: 500;
+    font-weight: 600;
     border-radius: 8px;
-    transition: all 0.3s ease;
-    padding: 0.75rem 1.25rem;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 0.85rem 1.5rem;
     font-size: 0.95rem;
     border: none;
     text-decoration: none;
@@ -124,18 +126,18 @@ h4 {
 .btn-primary:hover {
     background-color: #e5533d;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(255, 99, 71, 0.3);
+    box-shadow: 0 6px 16px rgba(255, 99, 71, 0.4);
 }
 
 .btn-secondary {
     background-color: #f0f0f0;
     color: #333;
-    border: 1px solid #ddd;
 }
 
 .btn-secondary:hover {
     background-color: #e0e0e0;
-    border-color: #ccc;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
 
 #logout-btn {
@@ -157,18 +159,19 @@ h4 {
 }
 
 .sidebar input[type="text"] {
-    padding: 0.8rem 1rem;
-    border: 1px solid #ddd;
+    padding: 0.85rem 1rem;
+    border: none;
+    background-color: #f7f7f7;
     border-radius: 8px;
     font-size: 1rem;
     font-family: 'Lato', sans-serif;
-    transition: border-color 0.3s, box-shadow 0.3s;
+    transition: all 0.2s ease;
 }
 
 .sidebar input[type="text"]:focus {
     outline: none;
-    border-color: #ff6347;
-    box-shadow: 0 0 0 3px rgba(255, 99, 71, 0.2);
+    background-color: #fff;
+    box-shadow: 0 0 0 2px #ff6347;
 }
 
 .sidebar form button {
@@ -222,18 +225,17 @@ h4 {
 /* Card styling for dashboard lists */
 .dashboard-card {
     background: #fff;
-    border: 1px solid #eee;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 1.5rem;
-    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    padding: 1.25rem 1.5rem;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .dashboard-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 
 .card-content { flex-grow: 1; }
@@ -296,16 +298,16 @@ h4 {
 @media (max-width: 768px) {
     .dashboard-layout {
         flex-direction: column;
+        padding: 1rem;
+        gap: 1.5rem;
     }
 
     .sidebar {
         width: 100%;
-        border-right: none;
-        border-bottom: 1px solid #eee;
     }
 
     .main-content {
-        padding: 2rem;
+        padding: 0;
     }
 }
 

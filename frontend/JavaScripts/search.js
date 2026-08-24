@@ -41,22 +41,23 @@ function restaurantCard(restaurant) {
     const image = restaurant.photo_url
         ? `<img src="${escapeHtml(getImageUrl(restaurant.photo_url))}" alt="${escapeHtml(restaurant.name)}"/>`
         : NO_PHOTO_HTML;
-    const rating = restaurant.rating
-        ? `<div class="rating">
-               <span class="stars">★</span>
-               <span>${parseFloat(restaurant.rating).toFixed(1)}</span>
+    const ratingHtml = restaurant.rating 
+        ? `<div class="rating-badge" style="font-size: 0.9rem; font-weight: bold; margin-bottom: 4px; color: #444;">
+            <span class="stars"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 2px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span> ${parseFloat(restaurant.rating).toFixed(1)}
            </div>`
         : '';
+        
+    const typeHtml = restaurant.primary_type 
+        ? `<div class="cuisine-type" style="font-size: 0.85rem; color: #666; margin-bottom: 4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg> ${escapeHtml(restaurant.primary_type)}</div>`
+        : '';
+
     const price = restaurant.price_level
         ? `<div class="price-level">${'$'.repeat(restaurant.price_level)}</div>`
         : '';
     const openNow = restaurant.is_open !== null && restaurant.is_open !== undefined
         ? `<div class="is-open ${restaurant.is_open ? 'open' : 'closed'}">
-               ${restaurant.is_open ? '✓ Open Now' : '✗ Closed'}
+               ${restaurant.is_open ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>Open Now' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>Closed'}
            </div>`
-        : '';
-    const cuisine = restaurant.primary_type
-        ? `<div class="cuisine-type" style="font-size: 0.85rem; color: #666; margin-bottom: 4px;">🍽️ ${escapeHtml(restaurant.primary_type)}</div>`
         : '';
 
     return `
@@ -64,16 +65,14 @@ function restaurantCard(restaurant) {
             <div class="restaurant-image">${image}</div>
             <div class="restaurant-info">
                 <div class="restaurant-name">${escapeHtml(restaurant.name)}</div>
-                ${cuisine}
-                <div class="restaurant-meta">${rating} ${price}</div>
+                ${typeHtml}
+                <div class="restaurant-meta">${ratingHtml} ${price}</div>
                 ${openNow}
                 <div class="restaurant-address">${escapeHtml(formatAddress(restaurant.address))}</div>
                 <div class="action-buttons">
-                    <button class="btn-save ${isSaved ? 'saved' : ''}"
-                            data-action="save" data-place-id="${escapeHtml(restaurant.api_place_id)}"
-                            ${isSaved ? 'disabled' : ''}>
-                        ${isSaved ? '✓ Saved' : '+ Save'}
-                    </button>
+                        <button type="button" class="btn btn-save ${isSaved ? 'saved' : ''}" data-action="save" data-place-id="${escapeHtml(restaurant.api_place_id)}" ${isSaved ? 'disabled' : ''}>
+                        ${isSaved ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>Saved' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Save'}
+                        </button>
                     <button class="btn-details"
                             data-action="details" data-place-id="${escapeHtml(restaurant.api_place_id)}">Details</button>
                 </div>
@@ -127,7 +126,7 @@ function getCurrentLocation() {
                 longitude: position.coords.longitude
             };
             showMessage(
-                `📍 Location: ${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}`,
+                `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 6px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> Location: ${currentLocation.latitude.toFixed(4)}, ${currentLocation.longitude.toFixed(4)}`,
                 'success'
             );
             button.disabled = false;
@@ -198,7 +197,7 @@ async function saveRestaurant(placeId, buttonElement) {
     if (!restaurant) return;
 
     // Optimistic UI Update immediately so the user can't re-click
-    buttonElement.textContent = '✓ Saved';
+    buttonElement.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg>Saved';
     buttonElement.disabled = true;
     buttonElement.classList.add('saved');
 
@@ -229,7 +228,7 @@ async function saveRestaurant(placeId, buttonElement) {
         } else {
             restaurant.saved = true;
             savedPlaceIds.add(restaurant.api_place_id);
-            showMessage(`✓ ${restaurant.name} saved!`, 'success');
+            showMessage(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><polyline points="20 6 9 17 4 12"></polyline></svg> ${restaurant.name} saved!`, 'success');
         }
     } catch (error) {
         console.error('Save error:', error);

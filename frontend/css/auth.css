@@ -41,8 +41,9 @@ body.auth-page {
 /* Headings */
 .auth-container h2 {
     font-family: 'Poppins', sans-serif;
-    color: #ff6347; /* A warm, food-like color (Tomato) */
-    font-size: 2rem;
+    color: #ff6347;
+    font-size: 2.2rem;
+    font-weight: 700;
     margin-top: 0;
     margin-bottom: 0.5rem;
 }
@@ -69,17 +70,18 @@ body.auth-page {
 .auth-container input[type="email"],
 .auth-container input[type="password"] {
     padding: 0.9rem 1rem;
-    border: 1px solid #ddd;
+    border: none;
+    background-color: #f7f7f7;
     border-radius: 8px;
     font-size: 1rem;
     font-family: 'Lato', sans-serif;
-    transition: border-color 0.3s, box-shadow 0.3s;
+    transition: all 0.2s ease;
 }
 
 .auth-container input:focus {
     outline: none;
-    border-color: #ff6347;
-    box-shadow: 0 0 0 3px rgba(255, 99, 71, 0.2);
+    background-color: #fff;
+    box-shadow: 0 0 0 2px #ff6347;
 }
 
 /* Buttons */

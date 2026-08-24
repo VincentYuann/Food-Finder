@@ -53,20 +53,17 @@ async function loadProfile() {
 // ==========================================
 
 function savedRestaurantCard(restaurant) {
-    const rating = restaurant.rating
-        ? `<div class="meta-item rating">
-               <span class="stars">★</span>
-               <span>${parseFloat(restaurant.rating).toFixed(1)}</span>
-           </div>`
+    const ratingHtml = restaurant.rating 
+        ? `<div class="meta-item rating" style="color: #444;"><span class="stars"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 2px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></span> ${parseFloat(restaurant.rating).toFixed(1)}</div>`
         : '';
         
-    const cuisine = restaurant.primary_type
-        ? `<div class="meta-item cuisine" style="color:#666; margin-left: 8px;">🍽️ ${escapeHtml(restaurant.primary_type)}</div>`
+    const typeHtml = restaurant.primary_type 
+        ? `<div class="meta-item cuisine" style="color:#666; margin-left: 8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg> ${escapeHtml(restaurant.primary_type)}</div>`
         : '';
         
     const image = restaurant.photo_url
         ? `<img src="${escapeHtml(getImageUrl(restaurant.photo_url))}" alt="${escapeHtml(restaurant.name)}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; margin-right: 15px;" />`
-        : `<div style="width: 60px; height: 60px; background: #eee; border-radius: 8px; margin-right: 15px; display: flex; align-items: center; justify-content: center; font-size: 20px;">📸</div>`;
+        : `<div style="width: 60px; height: 60px; background: #fef2f2; border-radius: 8px; margin-right: 15px; display: flex; align-items: center; justify-content: center; color: #ff6347; font-weight: bold;">?</div>`;
 
     return `
         <li class="dashboard-card" id="saved-restaurant-${restaurant.id}" style="display: flex; align-items: center; padding: 15px;">
@@ -74,7 +71,7 @@ function savedRestaurantCard(restaurant) {
             <div class="card-content" style="flex: 1;">
                 <div class="card-title">${escapeHtml(restaurant.name)}</div>
                 <div class="card-address">${escapeHtml(restaurant.address || 'Address not available')}</div>
-                <div class="card-meta" style="display: flex; align-items: center; margin-top: 5px;">${rating}${cuisine}</div>
+                <div class="card-meta" style="display: flex; align-items: center; margin-top: 5px;">${ratingHtml}${typeHtml}</div>
             </div>
             <div class="card-actions" style="display: flex; flex-direction: column; gap: 8px;">
                 <button type="button" class="btn btn-details"
