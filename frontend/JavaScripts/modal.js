@@ -162,7 +162,26 @@ function buildDetailsHTML(details) {
 
     let hoursHtml = '';
     if (details.opening_hours && Array.isArray(details.opening_hours) && details.opening_hours.length > 0) {
-        const hoursList = details.opening_hours.map(day => `<li>${escapeHtml(day)}</li>`).join('');
+        const todayDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+        const hoursList = details.opening_hours.map(dayStr => {
+            const isToday = dayStr.startsWith(todayDayName);
+            const todayBadge = isToday ? '<span class="today-tag">Today</span>' : '';
+            const itemClass = isToday ? 'modal-hours-item is-today' : 'modal-hours-item';
+
+            const colonIndex = dayStr.indexOf(':');
+            if (colonIndex !== -1) {
+                const day = dayStr.substring(0, colonIndex);
+                const time = dayStr.substring(colonIndex + 1).trim();
+                return `
+                    <li class="${itemClass}">
+                        <span class="hours-day">${escapeHtml(day)} ${todayBadge}</span>
+                        <span class="hours-time">${escapeHtml(time)}</span>
+                    </li>
+                `;
+            }
+            return `<li class="${itemClass}">${escapeHtml(dayStr)} ${todayBadge}</li>`;
+        }).join('');
+
         hoursHtml = `
             <div class="modal-section">
                 <h3>Opening Hours</h3>

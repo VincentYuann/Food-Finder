@@ -110,9 +110,45 @@ body {
 
 
 .modal-section { padding: 0 20px 15px; border-bottom: 1px solid #eee; }
-.modal-section h3 { font-size: 1rem; color: #111; margin-bottom: 8px; font-family: "Poppins", sans-serif; }
-.modal-hours { list-style: none; padding: 0; margin: 0; font-size: 0.9rem; color: #444; }
-.modal-hours li { margin-bottom: 4px; }
+.modal-section h3 { font-size: 1rem; color: #111; margin-bottom: 10px; font-family: "Poppins", sans-serif; font-weight: 700; }
+.modal-hours { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.modal-hours-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #555;
+    background: transparent;
+    transition: background 0.15s ease;
+}
+.modal-hours-item.is-today {
+    background: #fff5f3;
+    border: 1px solid #ffd8d1;
+    color: #111;
+    font-weight: 600;
+}
+.hours-day {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.hours-time {
+    font-variant-numeric: tabular-nums;
+    color: inherit;
+}
+.today-tag {
+    background: #ff6347;
+    color: #ffffff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 6px;
+    border-radius: 999px;
+    line-height: 1.3;
+}
 
 /* Accessibility Focus Indicators */
 .modal-close:focus-visible {
