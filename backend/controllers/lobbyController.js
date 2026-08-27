@@ -365,23 +365,30 @@ export const setMemberReady = async (req, res) => {
             include: { user: { select: publicUserSelect } }
         });
 
-        // check if everyone is ready to vote
+        // check if everyone is ready
         let phaseChanged = false;
-        if (req.lobby.status === 'active' && requestedReady) {
+        if ((req.lobby.status === 'active' || req.lobby.status === 'voting') && requestedReady) {
             const totalMembers = await prisma.lobbyMember.count({ where: { lobby_id: req.lobbyId } });
             const readyCount = await prisma.lobbyMember.count({ where: { lobby_id: req.lobbyId, ready: true } });
             
             if (totalMembers > 0 && readyCount === totalMembers) {
-                // Auto transition to 'voting'
+                const nextStatus = req.lobby.status === 'active' ? 'voting' : 'closed';
+                // Auto transition to next status
                 await prisma.lobby.update({
                     where: { id: req.lobbyId },
-                    data: { status: 'voting' }
+                    data: { 
+                        status: nextStatus,
+                        ...(nextStatus === 'closed' ? { closed_at: new Date() } : {})
+                    }
                 });
-                // reset everyone's ready status for the voting phase
-                await prisma.lobbyMember.updateMany({
-                    where: { lobby_id: req.lobbyId },
-                    data: { ready: false }
-                });
+                
+                if (nextStatus === 'voting') {
+                    // reset everyone's ready status for the voting phase
+                    await prisma.lobbyMember.updateMany({
+                        where: { lobby_id: req.lobbyId },
+                        data: { ready: false }
+                    });
+                }
                 phaseChanged = true;
             }
         }
@@ -392,7 +399,10 @@ export const setMemberReady = async (req, res) => {
         // The last person to ready up flips the whole lobby into voting. That
         // has to go out before the member list, so every tab has the new phase
         // by the time it re-renders the (now cleared) ready badges.
-        if (phaseChanged) await broadcastLobbyState(req.lobbyId);
+        if (phaseChanged) {
+            await broadcastLobbyVotes(req.lobbyId);
+            await broadcastLobbyState(req.lobbyId);
+        }
 
         // Everyone's ready tally — and the host's Close Lobby button — updates
         // without waiting for a refresh.

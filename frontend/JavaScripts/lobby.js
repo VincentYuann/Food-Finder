@@ -273,15 +273,6 @@ function renderLobbyHeader(lobby) {
             }
         });
     }
-
-    if (isCreator) {
-        if (currentLobby.status === 'closed') {
-            document.getElementById('lobby-action-container').innerHTML = `<button id="close-lobby-btn" class="btn" style="color: #dc3545; border-color: #dc3545; background-color: #fff;" disabled>Lobby Closed</button>`;
-        } else {
-            const actionName = currentLobby.status === 'active' ? 'Start Voting' : 'Close Lobby';
-            document.getElementById('lobby-action-container').innerHTML = `<button id="close-lobby-btn" class="btn btn-warning" disabled>${actionName}</button>`;
-        }
-    }
 }
 
 function renderMembers(members) {
@@ -304,23 +295,7 @@ function renderMembers(members) {
             ? `<span class="ready-badge">Ready</span>`
             : `<span class="not-ready-badge">Not ready</span>`;
 
-        // show a toggle button to mark ready/unready
-        if (isCurrent && !isCreator) {
-            const actionContainer = document.getElementById('lobby-action-container');
-            if (actionContainer) {
-                if (currentLobby.status === 'closed') {
-                    actionContainer.innerHTML = `<button type="button" class="btn" style="color: #dc3545; border-color: #dc3545; background-color: #fff;" disabled>Lobby Closed</button>`;
-                } else {
-                    let readyText = 'Ready';
-                    if (currentLobby.status === 'active') {
-                        readyText = 'Ready to vote';
-                    } else if (currentLobby.status === 'voting') {
-                        readyText = 'Ready to close';
-                    }
-                    actionContainer.innerHTML = `<button type="button" class="btn btn-secondary" data-action="toggle-ready" data-ready="${m.ready}">${m.ready ? 'Unready' : readyText}</button>`;
-                }
-            }
-        }
+
 
         const creatorClass = isCreator ? 'member-creator' : '';
 
@@ -337,26 +312,25 @@ function renderMembers(members) {
 }
 
 function updateCloseButtonState(members) {
-    const btn = document.getElementById('close-lobby-btn');
-    if (!btn) return;
+    const actionContainer = document.getElementById('lobby-action-container');
+    if (!actionContainer) return;
 
     if (currentLobby.status === 'closed') {
-        btn.disabled = true;
-        btn.textContent = 'Lobby Closed';
-        btn.style.color = '#dc3545';
-        btn.style.borderColor = '#dc3545';
-        btn.style.backgroundColor = '#fff';
+        actionContainer.innerHTML = `<button type="button" class="btn" style="color: #dc3545; border-color: #dc3545; background-color: #fff;" disabled>Lobby Closed</button>`;
         return;
     }
 
     const totalMembers = members.length;
     const readyCount = members.filter((m) => m.ready).length;
-    const required = Math.max(0, totalMembers - 1);
-    const canClose = readyCount >= required;
-
-    btn.disabled = !canClose;
+    
     const actionName = currentLobby.status === 'active' ? 'Start Voting' : 'Close Lobby';
-    btn.textContent = `${actionName} (${readyCount}/${totalMembers} ready)`;
+    const currentUserMember = members.find(m => currentUser && m.user.id === currentUser.id);
+    const myReady = currentUserMember ? currentUserMember.ready : false;
+
+    const btnText = myReady ? `Unready (${readyCount}/${totalMembers} ready)` : `${actionName} (${readyCount}/${totalMembers} ready)`;
+    const btnClass = myReady ? 'btn-secondary' : 'btn-warning';
+
+    actionContainer.innerHTML = `<button type="button" class="btn ${btnClass}" data-action="toggle-ready" data-ready="${myReady}">${btnText}</button>`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -365,10 +339,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn) {
             const currentReady = btn.dataset.ready === 'true';
             await toggleMyReady(!currentReady);
-        }
-
-        if (event.target && event.target.id === 'close-lobby-btn') {
-            closeLobby();
         }
     });
 });
@@ -392,43 +362,6 @@ async function toggleMyReady(newReady) {
     } catch (error) {
         console.error('Failed to update ready state', error);
         showToast(error.message || 'Could not update ready state.', 'error');
-    }
-}
-
-// progress lobby (for creators)
-async function closeLobby() {
-    const isVotingNext = currentLobby.status === 'active';
-    const nextStatus = isVotingNext ? 'voting' : 'closed';
-    const promptMsg = isVotingNext 
-        ? 'Are you ready to start voting on the shortlisted restaurants?' 
-        : 'Close the lobby for everyone? This will conclude voting and crown the winning restaurant.';
-
-    const confirmed = await confirmModal({
-        title: isVotingNext ? 'Start Group Voting' : 'Close Lobby',
-        message: promptMsg,
-        confirmText: isVotingNext ? 'Start Voting' : 'Close Lobby',
-        cancelText: 'Cancel',
-        confirmClass: isVotingNext ? 'btn-primary' : 'btn-danger'
-    });
-
-    if (!confirmed) return;
-
-    try {
-        const response = await apiFetch(`/api/lobbies/${currentLobbyId}`, {
-            method: 'PATCH',
-            body: { status: nextStatus }
-        });
-
-        if (!response.ok) {
-            throw new Error(await errorFrom(response, 'Could not update the lobby'));
-        }
-        // No toast here: applyLobbyState announces the phase change for
-        // everyone, host included, whichever arrives first - the broadcast or
-        // this refetch. Announcing here too would double it up for the host.
-        await resyncLobby();
-    } catch (error) {
-        console.error('Failed to update lobby', error);
-        showToast(error.message || 'Could not update the lobby.', 'error');
     }
 }
 
