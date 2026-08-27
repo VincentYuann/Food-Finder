@@ -539,7 +539,6 @@ export const castVote = async (req, res) => {
     try {
         const totalMembers = await prisma.lobbyMember.count({ where: { lobby_id: req.lobbyId } });
         const totalVotes = await prisma.vote.count({ where: { lobby_id: req.lobbyId } });
-        
         // If the current user hasn't voted yet, they are allowed to vote up until everyone has voted.
         // If they already voted, they can only change if not everyone has voted yet.
         const existingVote = await prisma.vote.findUnique({
@@ -549,6 +548,7 @@ export const castVote = async (req, res) => {
         if (totalVotes >= totalMembers && existingVote) {
             return res.status(403).json({ error: 'Everyone has voted. No more changes can be made.' });
         }
+        
         // Only options that were actually shortlisted in this lobby are votable.
         const option = await prisma.lobbyRestaurantOption.findUnique({
             where: {

@@ -448,6 +448,24 @@ function renderRestaurants(options) {
     const spotlightContainer = document.getElementById('lobby-winner-spotlight');
     setScrollable(container, currentOptions.length);
 
+    const isClosed = currentLobby && currentLobby.status === 'closed';
+    const totalMembers = currentMembers ? currentMembers.length : 0;
+    const totalVotes = currentVotes ? currentVotes.length : 0;
+
+    if (currentLobby && currentLobby.status === 'voting') {
+        let tallyDiv = document.getElementById('lobby-live-tally');
+        if (!tallyDiv) {
+            tallyDiv = document.createElement('div');
+            tallyDiv.id = 'lobby-live-tally';
+            tallyDiv.style = 'background: #eef2f5; padding: 10px; border-radius: 6px; margin-bottom: 15px; text-align: center; font-weight: bold; color: #333; font-size: 1.1rem;';
+            container.parentNode.insertBefore(tallyDiv, container);
+        }
+        tallyDiv.innerHTML = `Live Vote Count: <span style="color: #ff6347;">${totalVotes} / ${totalMembers}</span> votes cast`;
+    } else {
+        const tallyDiv = document.getElementById('lobby-live-tally');
+        if (tallyDiv) tallyDiv.remove();
+    }
+
     if (currentOptions.length === 0) {
         if (spotlightContainer) spotlightContainer.innerHTML = '';
         container.innerHTML = placeholder(
@@ -457,7 +475,6 @@ function renderRestaurants(options) {
         return;
     }
 
-    const isClosed = currentLobby && currentLobby.status === 'closed';
     let winningOption = null;
     let maxVotes = -1;
 
@@ -518,7 +535,7 @@ function renderRestaurants(options) {
 
     container.innerHTML = displayOptions.map(opt => {
         const isWinner = isClosed && winningOption && opt.restaurant.id === winningOption.restaurant.id;
-        return restaurantCard(opt, isWinner);
+        return restaurantCard(opt, isWinner, isClosed);
     }).join('');
 
     container.scrollTop = previousScroll;
