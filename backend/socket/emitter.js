@@ -32,3 +32,29 @@ export const emitLobbyMembers = (lobbyId, members) => {
     if (!io) return;
     io.to(lobbyRoom(lobbyId)).emit('lobby:members', members);
 };
+
+/**
+ * Pushes the lobby record itself — name, status, chosen restaurant, members.
+ *
+ * Status is the field that gates every other bit of the page: whether the vote
+ * buttons exist, what the ready button says, whether the winner banner shows.
+ * Without this event a member who wasn't the one clicking "Start Voting" sat on
+ * a stale `status` until they reloaded, which is why their ready button and
+ * vote cards never appeared.
+ */
+export const emitLobbyState = (lobbyId, lobby) => {
+    if (!io) return;
+    io.to(lobbyRoom(lobbyId)).emit('lobby:state', lobby);
+};
+
+/** Pushes the full shortlist after anyone adds or removes an option. */
+export const emitLobbyOptions = (lobbyId, options) => {
+    if (!io) return;
+    io.to(lobbyRoom(lobbyId)).emit('lobby:options', options);
+};
+
+/** Pushes every vote in the lobby so tallies move as people click. */
+export const emitLobbyVotes = (lobbyId, votes) => {
+    if (!io) return;
+    io.to(lobbyRoom(lobbyId)).emit('lobby:votes', votes);
+};

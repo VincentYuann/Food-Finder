@@ -63,3 +63,49 @@ export async function getPresignedUrl(s3Key) {
         return null;
     }
 }
+
+// Whether the bucket is actually reachable with the configured credentials,
+// plus when we last checked. Probing on every image request would double the
+// latency of every photo on the page, so the verdict is held briefly and
+// shared across them.
+let healthProbe = null;
+const HEALTH_TTL_MS = 60_000;
+
+/**
+ * True when S3 can serve bytes with the credentials we have.
+ *
+ * A presigned URL is signed locally and always *looks* valid, so the only way
+ * to know the bucket will honour it is to ask. This range-GETs a single byte
+ * of a real object and reads the status:
+ *
+ *   403/401 -> the credentials are rejected, so S3 is unusable
+ *   404     -> that one object is missing, but auth worked fine
+ *
+ * Treating 404 as healthy matters: a single purged photo must not divert every
+ * other image on the site to the fallback path.
+ */
+export async function isS3Usable(sampleKey) {
+    const now = Date.now();
+    if (healthProbe && now - healthProbe.at < HEALTH_TTL_MS) return healthProbe.ok;
+
+    let ok = false;
+    try {
+        const url = await getPresignedUrl(sampleKey);
+        if (url) {
+            const response = await fetch(url, { headers: { Range: 'bytes=0-0' } });
+            ok = response.status !== 403 && response.status !== 401;
+        }
+    } catch (error) {
+        console.error('S3 health probe failed:', error.message);
+    }
+
+    if (!ok && (!healthProbe || healthProbe.ok)) {
+        console.warn(
+            'S3 photo cache is not serving (credentials rejected). ' +
+            'Falling back to Google Places for photos — check S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY.'
+        );
+    }
+
+    healthProbe = { at: now, ok };
+    return ok;
+}
