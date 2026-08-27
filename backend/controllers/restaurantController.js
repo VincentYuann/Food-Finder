@@ -1,6 +1,6 @@
 import prisma from '../config/dbConfig.js';
 import myCache from '../utils/cache.js';
-import { cachePhotoToS3, getPresignedUrl } from '../services/s3Service.js';
+import { cachePhotoToS3, getPresignedUrl, isS3Usable } from '../services/s3Service.js';
 import {
     searchNearbyRestaurants,
     getRestaurantDetails,
@@ -404,43 +404,111 @@ export const removeLobbyRestaurant = async (req, res) => {
 };
 
 
-export const proxyPhoto = async (req, res) => {
-    try {
-        const photoName = req.params.photoName;
-        const cacheKey = `photo_redirect_${photoName}`;
+/**
+ * Streams (or redirects to) a Google Places photo by its photo name.
+ *
+ * Google hands back a 302 to a short-lived CDN URL for most photos; passing
+ * that redirect through means the bytes never touch this server. Older photos
+ * come back inline, so both shapes are handled.
+ */
+const serveGooglePhoto = async (res, photoName, maxWidth, cacheKey) => {
+    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const googleUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${maxWidth}&key=${apiKey}`;
 
+    const axios = (await import('axios')).default;
+    const response = await axios.get(googleUrl, {
+        maxRedirects: 0,
+        responseType: 'arraybuffer',
+        validateStatus: status => status >= 200 && status < 400
+    });
+
+    if (response.status === 302 && response.headers.location) {
+        const redirectUrl = response.headers.location;
+        if (cacheKey) myCache.set(cacheKey, redirectUrl);
+        return res.redirect(redirectUrl);
+    }
+
+    res.set('Content-Type', response.headers['content-type']);
+    return res.send(response.data);
+};
+
+/**
+ * The Google photo name for whichever restaurant owns this cached S3 object.
+ *
+ * Caching a photo overwrites photo_url with the S3 key, which throws away the
+ * Google photo name that produced it — so when S3 can't serve the object there
+ * is nothing left to fall back to except the place id. The row is found by the
+ * key's UUID rather than the whole path, because photo_url stores it
+ * URL-encoded and the UUID is unique on its own.
+ */
+const googlePhotoNameForS3Key = async (s3Key) => {
+    const uuid = s3Key.split('/').pop().replace(/\.[^.]+$/, '');
+    if (!uuid) return null;
+
+    const restaurant = await prisma.restaurant.findFirst({
+        where: { photo_url: { contains: uuid } },
+        select: { api_place_id: true }
+    });
+    if (!restaurant) return null;
+
+    const details = await getRestaurantDetails(restaurant.api_place_id);
+    // getPhotoUrl() formats this as '/api/restaurants/photo/<encoded>?maxWidth='
+    const encoded = details?.photo_url?.split('/api/restaurants/photo/')[1];
+    return encoded ? decodeURIComponent(encoded.split('?')[0]) : null;
+};
+
+export const proxyPhoto = async (req, res) => {
+    const photoName = req.params.photoName;
+    const maxWidth = req.query.maxWidth || 400;
+    const cacheKey = `photo_redirect_${photoName}`;
+
+    try {
         if (myCache.has(cacheKey)) {
             return res.redirect(myCache.get(cacheKey));
         }
 
         if (photoName.startsWith('s3:')) {
             const s3Key = photoName.replace('s3:', '');
-            const presignedUrl = await getPresignedUrl(s3Key);
-            if (presignedUrl) {
-                myCache.set(cacheKey, presignedUrl, 7000);
-                return res.redirect(presignedUrl);
+
+            // Only redirect to S3 if the bucket is actually honouring our
+            // signatures. A presigned URL is signed locally, so it looks
+            // perfectly valid even when the credentials are stale - the
+            // browser would just receive a 403 and render a broken image.
+            if (await isS3Usable(s3Key)) {
+                const presignedUrl = await getPresignedUrl(s3Key);
+                if (presignedUrl) {
+                    // Expires just inside the URL's own 2h lifetime.
+                    myCache.set(cacheKey, presignedUrl, 7000);
+                    return res.redirect(presignedUrl);
+                }
             }
+
+            // S3 is unreachable, so go back to the original source. The
+            // resolution costs a Places lookup, hence caching the photo name
+            // rather than repeating it for every card on the page.
+            const nameKey = `s3_fallback_${s3Key}`;
+            let fallbackName = myCache.get(nameKey);
+
+            if (fallbackName === undefined) {
+                fallbackName = await googlePhotoNameForS3Key(s3Key);
+                // Held for a day rather than the cache's default hour: resolving
+                // one of these costs a billable Places Details call, and a photo
+                // name barely ever changes. Caching the misses too (as null)
+                // stops a restaurant with no photo re-querying on every render.
+                myCache.set(nameKey, fallbackName, 86400);
+            }
+
+            if (fallbackName) {
+                // Deliberately not written back to photo_url: leaving the S3
+                // key in place means these photos start serving from the cache
+                // again the moment the credentials are fixed, with no backfill.
+                return serveGooglePhoto(res, fallbackName, maxWidth, null);
+            }
+
             return res.status(404).send('S3 photo not found');
         }
 
-        const maxWidth = req.query.maxWidth || 400;
-        const apiKey = process.env.GOOGLE_PLACES_API_KEY;
-        const googleUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${maxWidth}&key=${apiKey}`;
-
-        const axios = (await import('axios')).default;
-        const response = await axios.get(googleUrl, {
-            maxRedirects: 0,
-            validateStatus: status => status >= 200 && status < 400
-        });
-
-        if (response.status === 302 && response.headers.location) {
-            const redirectUrl = response.headers.location;
-            myCache.set(cacheKey, redirectUrl);
-            return res.redirect(redirectUrl);
-        }
-
-        res.set('Content-Type', response.headers['content-type']);
-        return res.send(response.data);
+        return serveGooglePhoto(res, photoName, maxWidth, cacheKey);
     } catch (error) {
         console.error('Photo proxy error:', error.message);
         res.status(500).send('Failed to load photo');
