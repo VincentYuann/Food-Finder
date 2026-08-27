@@ -11,6 +11,11 @@ let currentLobby = null;
 let currentUser = null;
 let currentLobbyId = null;
 
+// The last member list we rendered. A phase change has to redraw the member
+// panel (the ready button's label depends on the phase) but arrives without a
+// member list of its own, so keep the last one around.
+let currentMembers = [];
+
 // Socket.IO connection carrying this lobby's live updates - chat messages and
 // the member list - and whether it has actually joined the lobby's room.
 // Sending falls back to the REST endpoint while it hasn't.
@@ -44,23 +49,51 @@ async function loadProfile() {
     }
 }
 
-async function loadLobbyDetails() {
+/**
+ * Fetches the lobby and hands it to applyLobbyState.
+ *
+ * `initial` marks the load the page can't open without. Every other call is a
+ * refresh - after a ready toggle, and on every socket reconnect - and those
+ * must not bounce the user to the dashboard just because one request failed.
+ * A dropped connection is exactly when this refetch is most likely to fail and
+ * exactly when throwing the user out would be least forgivable; a 403 or 404
+ * is different, because that says they genuinely can't be here any more.
+ */
+async function loadLobbyDetails({ initial = false } = {}) {
+    let response;
+
     try {
-        const response = await apiFetch(`/api/lobbies/${currentLobbyId}`);
-        // Non-members get a 403 and people with a stale link get a 404.
-        if (!response.ok) {
-            throw new Error('Failed to load lobby details or you are not a member.');
-        }
-        currentLobby = await response.json();
-        renderLobbyHeader(currentLobby);
-        if (currentOptions.length > 0) renderRestaurants();
+        response = await apiFetch(`/api/lobbies/${currentLobbyId}`);
     } catch (error) {
-        console.error(error);
-        showToast(error.message || 'Failed to load lobby.', 'error');
-        setTimeout(() => {
-            window.location.replace('/index.html');
-        }, 1200);
+        console.error('Failed to reach the lobby endpoint', error);
+        if (initial) bounceToDashboard('Failed to load lobby.');
+        return;
     }
+
+    // Non-members get a 403 and people with a stale link get a 404.
+    if (response.status === 403 || response.status === 404) {
+        return bounceToDashboard(await errorFrom(response, 'You are not a member of this lobby.'));
+    }
+
+    if (!response.ok) {
+        console.error('Failed to load lobby details:', response.status);
+        if (initial) bounceToDashboard('Failed to load lobby.');
+        return;
+    }
+
+    try {
+        applyLobbyState(await response.json());
+    } catch (error) {
+        console.error('Malformed lobby payload', error);
+        if (initial) bounceToDashboard('Failed to load lobby.');
+    }
+}
+
+function bounceToDashboard(message) {
+    showToast(message, 'error');
+    setTimeout(() => {
+        window.location.replace('/index.html');
+    }, 1200);
 }
 
 async function loadLobbyMembers() {
@@ -104,8 +137,69 @@ async function loadLobbyVotes() {
         const response = await apiFetch(`/api/lobbies/${currentLobbyId}/votes`);
         if (!response.ok) throw new Error('Failed to load votes');
         currentVotes = await response.json();
+        if (currentOptions.length > 0) renderRestaurants();
     } catch (error) {
         console.error(error);
+    }
+}
+
+// ==========================================
+// LOBBY STATE
+// ==========================================
+
+const PHASE_ANNOUNCEMENTS = {
+    voting: ['Everyone is ready — voting has started!', 'success'],
+    closed: ['The lobby is closed. The votes are in!', 'success'],
+    active: ['The lobby is open for suggestions again.', 'info'],
+};
+
+/**
+ * Adopts a lobby record — from the initial fetch or pushed over the socket —
+ * and redraws everything the phase controls.
+ *
+ * The status field gates the header button, the ready button's wording, the
+ * vote buttons and the winner banner, so a change to it has to fan out to all
+ * of them. Routing both the fetch and the broadcast through here means a member
+ * who wasn't the one clicking sees exactly what the clicker sees.
+ */
+function applyLobbyState(lobby) {
+    if (!lobby) return;
+
+    const previousStatus = currentLobby ? currentLobby.status : null;
+    currentLobby = lobby;
+
+    renderLobbyHeader(lobby);
+    syncPhaseControls();
+
+    // GET /api/lobbies/:id and the lobby:state broadcast both embed the members;
+    // fall back to the last list we saw in case that ever changes.
+    renderMembers(lobby.members || currentMembers);
+    if (currentOptions.length > 0) renderRestaurants();
+
+    // Only announce a real transition, and never the very first render — a
+    // reload of an already-closed lobby shouldn't toast about it.
+    if (previousStatus && lobby.status !== previousStatus) {
+        const announcement = PHASE_ANNOUNCEMENTS[lobby.status];
+        if (announcement) showToast(announcement[0], announcement[1]);
+    }
+}
+
+/**
+ * Suggestions are only accepted while the lobby is active — the server rejects
+ * them outright afterwards — so hide the add controls once voting starts
+ * rather than letting people click into a 403.
+ */
+function syncPhaseControls() {
+    const isActive = currentLobby && currentLobby.status === 'active';
+
+    const sectionControls = document.querySelector('.section-controls');
+    if (sectionControls) sectionControls.style.display = isActive ? 'flex' : 'none';
+
+    // Someone can be mid-search when the host starts voting; close the panel
+    // out from under them instead of leaving dead "Add to Lobby" buttons up.
+    if (!isActive) {
+        const addContainer = document.getElementById('lobby-add-container');
+        if (addContainer) addContainer.style.display = 'none';
     }
 }
 
@@ -191,6 +285,7 @@ function renderLobbyHeader(lobby) {
 }
 
 function renderMembers(members) {
+    currentMembers = members;
     const list = document.getElementById('members-list');
     document.getElementById('member-count').textContent = members.length;
     setScrollable(list, members.length);
@@ -288,8 +383,11 @@ async function toggleMyReady(newReady) {
         if (!response.ok) {
             throw new Error(await errorFrom(response, 'Could not update ready state'));
         }
-        // The server broadcasts the new list to the room, this tab included,
-        // but refetch anyway so the badge still flips when the socket is down.
+        // The server broadcasts to the room, this tab included, but refetch
+        // anyway so the badge still flips when the socket is down. Details and
+        // not just members: being the last one to ready up tips the whole lobby
+        // into the voting phase.
+        await loadLobbyDetails();
         await loadLobbyMembers();
     } catch (error) {
         console.error('Failed to update ready state', error);
@@ -324,10 +422,10 @@ async function closeLobby() {
         if (!response.ok) {
             throw new Error(await errorFrom(response, 'Could not update the lobby'));
         }
-        showToast(isVotingNext ? 'Voting has started!' : 'Lobby closed.', 'success');
-        // show new status
-        await loadLobbyDetails();
-        await loadLobbyMembers();
+        // No toast here: applyLobbyState announces the phase change for
+        // everyone, host included, whichever arrives first - the broadcast or
+        // this refetch. Announcing here too would double it up for the host.
+        await resyncLobby();
     } catch (error) {
         console.error('Failed to update lobby', error);
         showToast(error.message || 'Could not update the lobby.', 'error');
@@ -440,10 +538,6 @@ function renderRestaurants(options) {
             }
         });
 
-        // Hide section controls when closed
-        const sectionControls = document.querySelector('.section-controls');
-        if (sectionControls) sectionControls.style.display = 'none';
-
         // Render spotlight banner
         if (spotlightContainer && winningOption) {
             const r = winningOption.restaurant;
@@ -468,10 +562,8 @@ function renderRestaurants(options) {
                 </div>
             `;
         }
-    } else {
-        if (spotlightContainer) spotlightContainer.innerHTML = '';
-        const sectionControls = document.querySelector('.section-controls');
-        if (sectionControls) sectionControls.style.display = 'flex';
+    } else if (spotlightContainer) {
+        spotlightContainer.innerHTML = '';
     }
 
     // If closed, sort options so winner is first
@@ -486,10 +578,17 @@ function renderRestaurants(options) {
         });
     }
 
+    // Votes now stream in, so this list redraws while people are reading it.
+    // Rebuilding the HTML drops the scroll position, which would yank a long
+    // shortlist back to the top every time somebody else clicked Vote.
+    const previousScroll = container.scrollTop;
+
     container.innerHTML = displayOptions.map(opt => {
         const isWinner = isClosed && winningOption && opt.restaurant.id === winningOption.restaurant.id;
         return restaurantCard(opt, isWinner);
     }).join('');
+
+    container.scrollTop = previousScroll;
 
     // Handle spotlight button click delegation
     if (spotlightContainer) {
@@ -614,18 +713,26 @@ async function connectLive() {
             setChatStatus('online', 'Live');
 
             // Refetch on every connect, not just the first: this also covers
-            // whatever was said - and whoever joined or readied up - while a
-            // dropped connection was reconnecting.
-            loadLobbyMessages();
-            loadLobbyMembers();
+            // everything that happened - messages, joins, readies, added
+            // restaurants, votes, the phase itself - while a dropped
+            // connection was reconnecting.
+            resyncLobby();
         });
     });
 
     socket.on('chat:message', appendMessage);
 
-    // The server sends the whole member list, so this is the same render the
-    // initial fetch does - no need to reconcile a delta against the DOM.
+    // Every one of these carries a full snapshot rather than a delta, so each
+    // is just the render the initial fetch does - nothing to reconcile against
+    // the DOM, and a missed event fixes itself on the next one.
     socket.on('lobby:members', renderMembers);
+    socket.on('lobby:state', applyLobbyState);
+    socket.on('lobby:options', renderRestaurants);
+
+    socket.on('lobby:votes', (votes) => {
+        currentVotes = votes;
+        renderRestaurants();
+    });
 
     socket.on('disconnect', () => {
         lobbyConnected = false;
@@ -637,6 +744,24 @@ async function connectLive() {
         console.error('Live chat connection failed:', error.message);
         setChatStatus('offline', 'Offline');
     });
+}
+
+/**
+ * Pulls the whole lobby down again.
+ *
+ * Runs on first connect and on every reconnect. The broadcasts keep a live tab
+ * current, but a tab that was disconnected missed them outright, so the only
+ * safe move on reconnect is to re-read everything. Details first: the member
+ * and restaurant renders both read currentLobby.status.
+ */
+async function resyncLobby() {
+    await loadLobbyDetails();
+    await Promise.all([
+        loadLobbyMembers(),
+        loadLobbyMessages(),
+        loadLobbyVotes(),
+        loadLobbyRestaurants(),
+    ]);
 }
 
 /** Resolves once the server has stored the message, rejects with its reason. */
@@ -930,7 +1055,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Who the user is, then the lobby itself - the member list needs both to
     // work out which member is the host.
     await loadProfile();
-    await loadLobbyDetails();
+    await loadLobbyDetails({ initial: true });
 
     if (currentLobby) {
         await Promise.all([

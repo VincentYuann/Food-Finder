@@ -6,6 +6,9 @@ import { cachePhotoToS3 } from '../services/s3Service.js';
 import publicUserSelect from '../utils/publicUserSelect.js';
 import { createLobbyMessage, MessageValidationError } from '../services/lobbyChatService.js';
 import { listLobbyMembers, broadcastLobbyMembers } from '../services/lobbyMemberService.js';
+import { getLobbyState, broadcastLobbyState } from '../services/lobbyStateService.js';
+import { listLobbyOptions, broadcastLobbyOptions } from '../services/lobbyOptionService.js';
+import { listLobbyVotes, broadcastLobbyVotes } from '../services/lobbyVoteService.js';
 
 // Ambiguous characters (I, O, 0, 1) are left out so codes are easy to read aloud.
 const INVITE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -162,17 +165,7 @@ export const getLobby = async (req, res) => {
         const cacheKey = `lobby_${req.lobbyId}`;
         if (myCache.has(cacheKey)) return res.status(200).json(myCache.get(cacheKey));
 
-        const lobby = await prisma.lobby.findUnique({
-            where: { id: req.lobbyId },
-            include: {
-                creator: { select: publicUserSelect },
-                chosen_restaurant: true,
-                members: {
-                    orderBy: { joined_at: 'asc' },
-                    include: { user: { select: publicUserSelect } }
-                },
-            }
-        });
+        const lobby = await getLobbyState(req.lobbyId);
 
         myCache.set(cacheKey, lobby);
         res.status(200).json(lobby);
@@ -231,8 +224,37 @@ export const updateLobby = async (req, res) => {
 
     try {
         const updated = await prisma.lobby.update({ where: { id: req.lobbyId }, data });
+
+        // Moving into the voting phase clears the ready flags, the same way the
+        // automatic transition in setMemberReady does. Without this the ticks
+        // people set to say "I'm ready to vote" would carry straight over into
+        // "ready to close", and the host could close the lobby before a single
+        // vote had been cast.
+        if (data.status === 'voting' && req.lobby.status !== 'voting') {
+            await prisma.lobbyMember.updateMany({
+                where: { lobby_id: req.lobbyId },
+                data: { ready: false }
+            });
+        }
+
         myCache.del(`lobby_${req.lobbyId}`);
         myCache.del(`user_lobbies_${req.user.id}`);
+        myCache.del(`lobby_members_${req.lobbyId}`);
+
+        // A phase change reveals the vote UI (entering 'voting') or the winner
+        // banner (entering 'closed'), and both render off the tally — so send
+        // the votes along rather than making every client refetch them.
+        if (data.status !== undefined) {
+            await broadcastLobbyVotes(req.lobbyId);
+        }
+
+        // The phase gates the whole page — vote buttons, the ready button's
+        // label, the winner banner. Everyone else finds out now instead of on
+        // their next refresh. State before members: the member render reads the
+        // phase to decide what the ready button should say.
+        await broadcastLobbyState(req.lobbyId);
+        await broadcastLobbyMembers(req.lobbyId);
+
         res.status(200).json(updated);
     } catch (error) {
         console.error('Error updating lobby:', error);
@@ -310,11 +332,11 @@ export const removeLobbyMember = async (req, res) => {
             }
         });
 
-        await broadcastLobbyMembers(req.lobbyId);
-
         myCache.del(`lobby_members_${req.lobbyId}`);
         myCache.del(`lobby_${req.lobbyId}`);
         myCache.del(`user_lobbies_${targetUserId}`);
+
+        await broadcastLobbyMembers(req.lobbyId);
         res.status(204).send();
     } catch (error) {
         // P2025 = record to delete does not exist
@@ -344,6 +366,7 @@ export const setMemberReady = async (req, res) => {
         });
 
         // check if everyone is ready to vote
+        let phaseChanged = false;
         if (req.lobby.status === 'active' && requestedReady) {
             const totalMembers = await prisma.lobbyMember.count({ where: { lobby_id: req.lobbyId } });
             const readyCount = await prisma.lobbyMember.count({ where: { lobby_id: req.lobbyId, ready: true } });
@@ -359,15 +382,21 @@ export const setMemberReady = async (req, res) => {
                     where: { lobby_id: req.lobbyId },
                     data: { ready: false }
                 });
+                phaseChanged = true;
             }
         }
+
+        myCache.del(`lobby_members_${req.lobbyId}`);
+        myCache.del(`lobby_${req.lobbyId}`);
+
+        // The last person to ready up flips the whole lobby into voting. That
+        // has to go out before the member list, so every tab has the new phase
+        // by the time it re-renders the (now cleared) ready badges.
+        if (phaseChanged) await broadcastLobbyState(req.lobbyId);
 
         // Everyone's ready tally — and the host's Close Lobby button — updates
         // without waiting for a refresh.
         await broadcastLobbyMembers(req.lobbyId);
-
-        myCache.del(`lobby_members_${req.lobbyId}`);
-        myCache.del(`lobby_${req.lobbyId}`);
         res.status(200).json(updated);
     } catch (error) {
         // P2025 = record to update does not exist
@@ -388,50 +417,11 @@ export const getLobbyRestaurants = async (req, res) => {
         const cacheKey = `lobby_restaurants_${req.lobbyId}`;
         if (myCache.has(cacheKey)) return res.status(200).json(myCache.get(cacheKey));
 
-        const options = await prisma.lobbyRestaurantOption.findMany({
-            where: { lobby_id: req.lobbyId },
-            include: {
-                restaurant: true,
-                adder: { select: publicUserSelect }
-            }
-        });
+        // listLobbyOptions also re-pulls any restaurant the cache purge emptied.
+        const options = await listLobbyOptions(req.lobbyId);
 
-        // Auto-refetch if the restaurant data was purged (name is null)
-        const enrichedOptions = await Promise.all(options.map(async (option) => {
-            let restaurant = option.restaurant;
-            
-            if (!restaurant.name) {
-                try {
-                    const details = await getRestaurantDetails(restaurant.api_place_id);
-                    restaurant = await prisma.restaurant.update({
-                        where: { id: restaurant.id },
-                        data: {
-                            name: details.name,
-                            address: details.address,
-                            latitude: details.latitude ? parseFloat(details.latitude) : null,
-                            longitude: details.longitude ? parseFloat(details.longitude) : null,
-                            rating: details.rating ? parseFloat(details.rating) : null,
-                            price_level: details.price_level,
-                            photo_url: details.photo_url,
-                            primary_type: details.primary_type,
-                            user_rating_count: details.user_rating_count,
-                            phone_number: details.phone_number,
-                            website_url: details.website_url,
-                            google_maps_url: details.google_maps_url,
-                            opening_hours: details.opening_hours,
-                            cached_at: new Date()
-                        }
-                    });
-                    option.restaurant = restaurant;
-                } catch (err) {
-                    console.error('Failed to auto-refetch purged lobby option:', restaurant.api_place_id);
-                }
-            }
-            return option;
-        }));
-
-        myCache.set(cacheKey, enrichedOptions);
-        res.status(200).json(enrichedOptions);
+        myCache.set(cacheKey, options);
+        res.status(200).json(options);
     } catch (error) {
         console.error('Error fetching lobby restaurants:', error);
         res.status(500).json({ error: 'Internal server error.' });
@@ -490,7 +480,9 @@ export const addLobbyRestaurant = async (req, res) => {
             }
         });
 
-        myCache.del(`lobby_restaurants_${req.lobbyId}`);
+        // Everyone else sees the new card appear in their shortlist.
+        await broadcastLobbyOptions(req.lobbyId);
+
         res.status(201).json(option);
     } catch (error) {
         if (error.code === 'P2002') {
@@ -513,13 +505,7 @@ export const getLobbyVotes = async (req, res) => {
         const cacheKey = `lobby_votes_${req.lobbyId}`;
         if (myCache.has(cacheKey)) return res.status(200).json(myCache.get(cacheKey));
 
-        const votes = await prisma.vote.findMany({
-            where: { lobby_id: req.lobbyId },
-            include: {
-                user: { select: publicUserSelect },
-                restaurant: true
-            }
-        });
+        const votes = await listLobbyVotes(req.lobbyId);
 
         myCache.set(cacheKey, votes);
         res.status(200).json(votes);
@@ -577,7 +563,9 @@ export const castVote = async (req, res) => {
             }
         });
 
-        myCache.del(`lobby_votes_${req.lobbyId}`);
+        // Tallies move on every other member's screen as the click lands.
+        await broadcastLobbyVotes(req.lobbyId);
+
         res.status(201).json(vote);
     } catch (error) {
         console.error('Error casting vote:', error);
@@ -652,7 +640,9 @@ export const removeLobbyRestaurant = async (req, res) => {
                 lobby_id_restaurant_id: { lobby_id: req.lobbyId, restaurant_id: restaurantId }
             }
         });
-        myCache.del(`lobby_restaurants_${req.lobbyId}`);
+
+        await broadcastLobbyOptions(req.lobbyId);
+
         res.status(204).send();
     } catch (error) {
         if (error.code === 'P2025') {
