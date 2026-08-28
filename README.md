@@ -36,23 +36,28 @@ FoodFinder eliminates the back-and-forth friction of deciding where to eat in a 
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    Client["Frontend SPA (Vanilla JS / Nginx)"]
-    API["Express 5 API Gateway"]
-    WS["Socket.IO Server"]
-    DB[("PostgreSQL (Prisma ORM)")]
-    MemoryCache["In-Memory TTL Cache (node-cache)"]
-    PlacesAPI["Google Places API (New & Classic)"]
-    S3["AWS S3 / Object Storage"]
-
-    Client -->|REST (HttpOnly JWT Cookie)| API
-    Client <-->|Bidirectional WS Events| WS
-    API -->|Prisma Client Queries| DB
-    API -->|1. Check Cache| MemoryCache
-    MemoryCache -->|2. Miss| PlacesAPI
-    PlacesAPI -->|3. Upsert Cache| DB
-    Client -->|Direct Upload via Presigned URL| S3
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                             Browser Client                              │
+│              Vanilla JS (ES Modules) • Custom CSS3 Design UI            │
+└──────────────────┬───────────────────────────────────────▲──────────────┘
+                   │ HTTP Requests (HttpOnly JWT Cookie)   │ WebSocket (Live Sync & Chat)
+                   ▼                                       ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         Express 5 Backend Server                        │
+│                Socket.IO Room Manager • Route Controllers               │
+└──────────────────┬───────────────────────────────────────┬──────────────┘
+                   │ Prisma ORM                            │ Cache Layer
+                   ▼                                       ▼
+┌─────────────────────────────────────┐         ┌─────────────────────────┐
+│             PostgreSQL              │         │   In-Memory TTL Cache   │
+│ (Users, Lobbies, Shortlists, Votes) │         │       (node-cache)      │
+└─────────────────────────────────────┘         └────────────┬────────────┘
+                                                             │ Cache Miss
+                                                             ▼
+                                                ┌─────────────────────────┐
+                                                │    Google Places API    │
+                                                └─────────────────────────┘
 ```
 
 ### Tech Stack
