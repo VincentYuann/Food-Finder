@@ -1,6 +1,6 @@
 export const API_BASE_URL = window.location.hostname === 'localhost'
     ? 'http://localhost:5000'
-    : 'https://food-finder-lk9t.onrender.com';
+    : 'https://food-finder-backend-270543644290.northamerica-northeast1.run.app'; //'https://food-finder-lk9t.onrender.com';
 
 /**
  * fetch() against the API with the session cookie attached.
