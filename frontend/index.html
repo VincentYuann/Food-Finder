@@ -1,80 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FoodFinder - Dashboard</title>
-    <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
-
-    <link rel="stylesheet" href="./css/main.css">
-    <link rel="stylesheet" href="./css/dashboard.css">
-</head>
-<body>
-    <div class="dashboard-layout">
-        
-        <!-- Sidebar: Profile & Controls -->
-        <aside class="sidebar">
-            <div class="sidebar-brand">
-                <a href="/index.html">
-                    <img src="./assets/logo.svg" alt="FoodFinder Logo" class="app-logo">
-                </a>
-            </div>
-            <div id="user-profile">
-                <h3 id="display-username">Loading...</h3>
-                <p id="display-email"></p>
-                <button id="logout-btn" class="btn">Log Out</button>
-            </div>
-            <hr>
-            
-            <div class="sidebar-section">
-                <h4>Discover</h4>
-                <a href="/search.html" class="btn btn-secondary"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: text-bottom; margin-right: 6px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>Search Restaurants</a>
-            </div>
-
-            <div class="sidebar-section">
-                <h4>Create a Lobby</h4>
-                <form id="create-lobby-form">
-                    <label for="create-lobby-name" class="visually-hidden">Lobby Name</label>
-                    <input type="text" id="create-lobby-name" placeholder="New lobby name..." maxlength="100" autocomplete="off" required>
-                    <button type="submit" class="btn btn-primary">Create</button>
-                </form>
-            </div>
-            <div class="sidebar-section">
-                <h4>Join a Lobby</h4>
-                <form id="join-lobby-form">
-                    <label for="join-lobby-code" class="visually-hidden">Lobby Invite Code</label>
-                    <input type="text" id="join-lobby-code" placeholder="Lobby invite code..." maxlength="10" autocomplete="off" required>
-                    <button type="submit" class="btn btn-primary">Join</button>
-                </form>
-            </div>
-            <p id="lobby-error" class="error-message"></p>
-        </aside>
-
-        <!-- Main Content Area -->
-        <main class="main-content">
-            <h2>Your Dashboard</h2>
-
-            <section id="saved-restaurants-section" class="dashboard-section">
-                <h3>Saved Restaurants</h3>
-                <ul id="saved-list">
-                    <!-- Populated by JS -->
-                </ul>
-            </section>
-
-            <section id="lobby-history-section" class="dashboard-section">
-                <h3>Your Lobbies</h3>
-                <ul id="lobby-list">
-                    <!-- Populated by JS -->
-                </ul>
-            </section>
-        </main>
-    </div>
-
-    <!-- Modular JS for Dashboard Data -->
-    <script type="module" src="/JavaScripts/dashboard.js"></script>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <title>FoodFinder • Discover & Decide Together</title>
+  </head>
+  <body class="bg-slate-50 text-slate-900 font-sans antialiased min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>
