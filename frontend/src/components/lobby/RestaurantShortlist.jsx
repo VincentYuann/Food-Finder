@@ -127,7 +127,7 @@ export function RestaurantShortlist({
                 {isAddedByMe && isActive && (
                   <button
                     onClick={() => handleRemove(r.id)}
-                    className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 backdrop-blur-md shadow-sm border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-all"
+                    className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full bg-white/90 backdrop-blur-md shadow-sm border border-slate-200 text-slate-500 hover:text-red-600 hover:bg-slate-100 flex items-center justify-center transition-all"
                     title="Remove from lobby"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -168,7 +168,7 @@ export function RestaurantShortlist({
                 {/* Content */}
                 <div className="p-4 flex-1 flex flex-col justify-between">
                   <div>
-                    <h4 className="font-bold text-slate-900 text-base leading-snug line-clamp-1">
+                    <h4 className="font-heading font-semibold text-slate-900 text-base leading-snug line-clamp-1">
                       {r.name}
                     </h4>
 
@@ -195,7 +195,7 @@ export function RestaurantShortlist({
 
                     {/* Vote Count Indicator */}
                     {showVotes && (
-                      <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-brand-50 border border-brand-200 text-brand-700 font-bold text-xs">
+                      <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-tomato-light border border-tomato-border text-tomato font-bold text-xs">
                         <span>Votes:</span>
                         <span className="text-sm">{votesForThis.length}</span>
                       </div>
@@ -206,7 +206,7 @@ export function RestaurantShortlist({
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-2">
                     {showVotes && !isClosed && (
                       <Button
-                        variant={hasVotedForThis ? 'secondary' : 'primary'}
+                        variant={hasVotedForThis ? 'outline' : 'primary'}
                         size="sm"
                         onClick={() => handleVote(r.id)}
                         isLoading={votingId === r.id}

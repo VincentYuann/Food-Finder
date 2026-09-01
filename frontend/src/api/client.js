@@ -1,3 +1,5 @@
+import axios from 'axios';
+
 export const API_BASE_URL = 
   import.meta.env.VITE_API_BASE_URL || 
   (typeof window !== 'undefined' && window.location.hostname === 'localhost'
@@ -5,40 +7,65 @@ export const API_BASE_URL =
     : 'https://food-finder-backend-270543644290.northamerica-northeast1.run.app');
 
 /**
- * Enhanced fetch wrapper with credentials attached for HttpOnly cookie authentication.
+ * Pre-configured Axios instance with credentials for HttpOnly cookie authentication.
  */
-export async function apiFetch(path, { method = 'GET', body, headers, ...rest } = {}) {
-  const options = {
-    method,
-    credentials: 'include',
+export const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Response interceptor for uniform, friendly error extraction
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const message =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message ||
+      'An unexpected network error occurred';
+    return Promise.reject(new Error(message));
+  }
+);
+
+/**
+ * Axios-backed apiFetch helper for backward compatibility and uniform API calls.
+ */
+export async function apiFetch(path, { method = 'GET', body, headers, params, ...rest } = {}) {
+  const config = {
+    url: path,
+    method: method.toLowerCase(),
+    headers,
+    params,
     ...rest,
   };
 
-  const finalHeaders = { ...headers };
-
   if (body !== undefined) {
-    finalHeaders['Content-Type'] = 'application/json';
-    options.body = JSON.stringify(body);
+    config.data = body;
   }
 
-  options.headers = finalHeaders;
+  const response = await apiClient(config);
 
-  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
-  const response = await fetch(url, options);
-
-  return response;
+  // Return fetch-like response interface so existing consumers stay compatible
+  return {
+    ok: response.status >= 200 && response.status < 300,
+    status: response.status,
+    data: response.data,
+    json: async () => response.data,
+  };
 }
 
 /**
- * Extracts error message from API response with a safe fallback.
+ * Extracts error message from response or Error object.
  */
-export async function errorFrom(response, fallback = 'Something went wrong') {
-  try {
-    const data = await response.json();
-    return data.error || data.message || fallback;
-  } catch {
-    return fallback;
+export async function errorFrom(error, fallback = 'Something went wrong') {
+  if (error instanceof Error) return error.message;
+  if (error?.response?.data) {
+    return error.response.data.error || error.response.data.message || fallback;
   }
+  return fallback;
 }
 
 /**
@@ -51,3 +78,4 @@ export function getImageUrl(url) {
   }
   return url;
 }
+

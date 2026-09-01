@@ -1,148 +1,79 @@
-import { apiFetch, errorFrom } from './client';
+import { apiClient } from './client';
 
 export const lobbyApi = {
   async createLobby(name) {
-    const response = await apiFetch('/api/lobbies', {
-      method: 'POST',
-      body: { name },
-    });
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Could not create the lobby'));
-    }
-    return response.json();
+    const { data } = await apiClient.post('/api/lobbies', { name });
+    return data;
   },
 
   async joinLobby(invite_code) {
-    const response = await apiFetch('/api/lobbies/join', {
-      method: 'POST',
-      body: { invite_code },
-    });
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Could not join the lobby'));
-    }
-    return response.json();
+    const { data } = await apiClient.post('/api/lobbies/join', { invite_code });
+    return data;
   },
 
   async getLobby(lobbyId) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}`);
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to fetch lobby details'));
-    }
-    return response.json();
+    const { data } = await apiClient.get(`/api/lobbies/${lobbyId}`);
+    return data;
   },
 
   async updateLobbyStatus(lobbyId, status) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}`, {
-      method: 'PATCH',
-      body: { status },
-    });
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to update lobby status'));
-    }
-    return response.json();
+    const { data } = await apiClient.patch(`/api/lobbies/${lobbyId}`, { status });
+    return data;
   },
 
   async deleteLobby(lobbyId) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}`, { method: 'DELETE' });
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to delete lobby'));
-    }
-    return response.json();
+    const { data } = await apiClient.delete(`/api/lobbies/${lobbyId}`);
+    return data;
   },
 
   async leaveLobby(lobbyId, userId) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}/members/${userId}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to leave lobby'));
-    }
-    return response.json();
+    const { data } = await apiClient.delete(`/api/lobbies/${lobbyId}/members/${userId}`);
+    return data;
   },
 
   async getMembers(lobbyId) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}/members`);
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to fetch members'));
-    }
-    return response.json();
+    const { data } = await apiClient.get(`/api/lobbies/${lobbyId}/members`);
+    return data;
   },
 
   async setReady(lobbyId, ready) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}/members/ready`, {
-      method: 'PATCH',
-      body: { ready },
-    });
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to update ready state'));
-    }
-    return response.json();
+    const { data } = await apiClient.patch(`/api/lobbies/${lobbyId}/members/ready`, { ready });
+    return data;
   },
 
   async getRestaurants(lobbyId) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}/restaurants`);
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to fetch lobby restaurants'));
-    }
-    return response.json();
+    const { data } = await apiClient.get(`/api/lobbies/${lobbyId}/restaurants`);
+    return data;
   },
 
   async addRestaurant(lobbyId, api_place_id) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}/restaurants`, {
-      method: 'POST',
-      body: { api_place_id },
-    });
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to add restaurant to lobby'));
-    }
-    return response.json();
+    const { data } = await apiClient.post(`/api/lobbies/${lobbyId}/restaurants`, { api_place_id });
+    return data;
   },
 
   async removeRestaurant(lobbyId, restaurantId) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}/restaurants/${restaurantId}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to remove restaurant from lobby'));
-    }
-    return response.json();
+    const { data } = await apiClient.delete(`/api/lobbies/${lobbyId}/restaurants/${restaurantId}`);
+    return data;
   },
 
   async getVotes(lobbyId) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}/votes`);
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to fetch votes'));
-    }
-    return response.json();
+    const { data } = await apiClient.get(`/api/lobbies/${lobbyId}/votes`);
+    return data;
   },
 
   async castVote(lobbyId, restaurantId) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}/votes`, {
-      method: 'POST',
-      body: { restaurantId },
-    });
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to cast vote'));
-    }
-    return response.json();
+    const { data } = await apiClient.post(`/api/lobbies/${lobbyId}/votes`, { restaurantId });
+    return data;
   },
 
   async getMessages(lobbyId) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}/messages`);
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to fetch messages'));
-    }
-    return response.json();
+    const { data } = await apiClient.get(`/api/lobbies/${lobbyId}/messages`);
+    return data;
   },
 
   async sendMessage(lobbyId, content) {
-    const response = await apiFetch(`/api/lobbies/${lobbyId}/messages`, {
-      method: 'POST',
-      body: { content },
-    });
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to send message'));
-    }
-    return response.json();
+    const { data } = await apiClient.post(`/api/lobbies/${lobbyId}/messages`, { content });
+    return data;
   },
 };
+

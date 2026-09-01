@@ -41,8 +41,8 @@ export function MemberList({
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft p-5 flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-        <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-          <Users className="w-4 h-4 text-brand-500" />
+        <h3 className="font-heading font-semibold text-slate-900 text-sm flex items-center gap-2">
+          <Users className="w-4 h-4 text-tomato" />
           <span>Members ({totalMembers})</span>
         </h3>
       </div>
@@ -58,11 +58,13 @@ export function MemberList({
             <li
               key={m.id || user.id}
               className={`flex items-center justify-between p-2.5 rounded-xl transition-colors ${
-                isMe ? 'bg-brand-50/50 border border-brand-100' : 'bg-slate-50 border border-slate-100'
+                isMe ? 'bg-tomato-light/60 border border-tomato-border' : 'bg-slate-50 border border-slate-100'
               }`}
             >
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
+                <div className={`w-8 h-8 rounded-full font-bold text-xs flex items-center justify-center shrink-0 ${
+                  isMe ? 'bg-tomato text-white' : 'bg-slate-200 text-slate-700'
+                }`}>
                   {user.username?.[0]?.toUpperCase() || '?'}
                 </div>
                 <div className="truncate">
@@ -71,7 +73,7 @@ export function MemberList({
                       @{user.username || 'User'}
                     </span>
                     {isHost && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded">
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded">
                         <Crown className="w-3 h-3 text-amber-600" /> Host
                       </span>
                     )}
@@ -88,12 +90,12 @@ export function MemberList({
       {/* Ready Action Button */}
       <div className="pt-4 border-t border-slate-100 mt-4">
         <Button
-          variant={isClosed ? 'secondary' : myReady ? 'secondary' : 'warning'}
+          variant={isClosed ? 'secondary' : myReady ? 'outline' : 'primary'}
           size="md"
           onClick={handleToggle}
           disabled={isClosed}
           isLoading={isUpdating}
-          className="w-full font-bold shadow-xs"
+          className="w-full shadow-xs"
         >
           {btnLabel}
         </Button>

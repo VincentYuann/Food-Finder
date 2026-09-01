@@ -10,17 +10,17 @@ export function WinnerSpotlight({ winningOption, voteCount }) {
   const restaurant = winningOption.restaurant;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 via-brand-500 to-amber-600 p-6 text-white shadow-card animate-fade-in mb-6">
+    <div className="relative overflow-hidden rounded-2xl bg-tomato p-6 text-white shadow-lift border border-tomato-hover animate-fade-in mb-6">
       <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-amber-200 shrink-0 shadow-inner">
-            <Crown className="w-8 h-8 drop-shadow" />
+          <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-md flex items-center justify-center text-amber-300 shrink-0 shadow-inner border border-white/20">
+            <Crown className="w-8 h-8 drop-shadow-sm" />
           </div>
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm text-[11px] font-bold tracking-wide uppercase text-amber-100 mb-1">
-              Tonight's Pick • Winner
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm text-[11px] font-heading font-bold tracking-wider uppercase text-amber-100 mb-1">
+              Tonight's Pick / Winner
             </div>
-            <h3 className="text-2xl font-extrabold tracking-tight drop-shadow-sm">
+            <h3 className="text-2xl font-heading font-bold tracking-tight">
               {restaurant.name}
             </h3>
             <p className="text-sm text-amber-100 font-medium mt-0.5">
@@ -34,7 +34,7 @@ export function WinnerSpotlight({ winningOption, voteCount }) {
           size="md"
           onClick={() => openDetailsModal(restaurant.api_place_id)}
           icon={Info}
-          className="bg-white text-slate-900 hover:bg-amber-50 shadow-md font-bold shrink-0"
+          className="bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-950 shadow-md shrink-0"
         >
           View Details & Hours
         </Button>

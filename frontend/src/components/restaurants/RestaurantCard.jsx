@@ -54,7 +54,7 @@ export function RestaurantCard({
   const photoUrl = !imageError && restaurant.photo_url ? getImageUrl(restaurant.photo_url) : null;
 
   return (
-    <div className={`bg-white rounded-2xl border border-slate-200/80 shadow-soft hover:shadow-card transition-all duration-200 overflow-hidden flex flex-col ${className}`}>
+    <div className={`bg-white rounded-2xl border border-slate-200/80 shadow-ambient hover:shadow-lift hover:-translate-y-1 transition-all duration-200 overflow-hidden flex flex-col ${className}`}>
       {/* Image container */}
       <div className="relative h-44 w-full bg-slate-100 overflow-hidden">
         {photoUrl ? (
@@ -95,7 +95,7 @@ export function RestaurantCard({
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div>
           <div className="flex items-start justify-between gap-2">
-            <h4 className="font-bold text-slate-900 text-base leading-snug line-clamp-1">
+            <h4 className="font-heading font-semibold text-slate-900 text-base leading-snug line-clamp-1">
               {restaurant.name}
             </h4>
           </div>

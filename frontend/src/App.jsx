@@ -31,7 +31,7 @@ function ProtectedRoute({ children }) {
 
 export function App() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#fbfbfe]">
+    <div className="min-h-screen flex flex-col">
       <Navbar />
       <main className="flex-1">
         <Routes>

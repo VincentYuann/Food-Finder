@@ -7,27 +7,47 @@ export default {
   theme: {
     extend: {
       colors: {
+        tomato: {
+          DEFAULT: '#ff6347',
+          hover: '#e5533d',
+          light: '#fff5f3',
+          border: '#ffd8d1',
+        },
         brand: {
-          50: '#fff5f2',
-          100: '#ffe8e1',
-          200: '#ffd0c4',
-          300: '#ffaa96',
-          400: '#ff7759',
-          500: '#ff5436',
-          600: '#f03616',
-          700: '#c9270b',
-          800: '#a6240d',
-          900: '#862312',
-          950: '#490e05',
+          50: '#fff5f3',
+          100: '#ffe6e1',
+          200: '#ffd0c7',
+          300: '#ffaa9c',
+          400: '#ff826e',
+          500: '#ff6347', // Signature Tomato
+          600: '#e5533d', // Tomato Hover
+          700: '#c53c28',
+          800: '#9d3222',
+          900: '#7e2c20',
+          950: '#43120b',
+        },
+        gold: {
+          star: '#f59e0b',
+        },
+        surface: {
+          white: '#ffffff',
+          offwhite: '#fcfcfc',
+          bg: '#f7f7f7',
+          panel: '#ffffff',
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        sans: ['Lato', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        heading: ['Poppins', 'sans-serif'],
+        display: ['Poppins', 'sans-serif'],
       },
       boxShadow: {
-        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.03)',
-        'card': '0 8px 30px rgba(0, 0, 0, 0.06)',
-        'modal': '0 20px 50px rgba(0, 0, 0, 0.15)',
+        'ambient': '0 2px 8px rgba(0, 0, 0, 0.04)',
+        'container': '0 5px 25px rgba(0, 0, 0, 0.05)',
+        'lift': '0 8px 25px rgba(0, 0, 0, 0.09)',
+        'card': '0 4px 14px rgba(0, 0, 0, 0.06)',
+        'soft': '0 2px 10px rgba(0, 0, 0, 0.04)',
+        'glow-tomato': '0 4px 14px rgba(255, 99, 71, 0.28)',
       },
     },
   },

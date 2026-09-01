@@ -52,8 +52,8 @@ export function LiveChat({
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft flex flex-col h-[520px] overflow-hidden">
       {/* Chat Header */}
       <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-        <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-brand-500" />
+        <h3 className="font-heading font-semibold text-slate-900 text-sm flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-tomato" />
           <span>Group Discussion</span>
         </h3>
 
@@ -86,12 +86,12 @@ export function LiveChat({
               >
                 <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-slate-400">
                   <span className="font-semibold text-slate-600">@{author}</span>
-                  {time && <span>• {time}</span>}
+                  {time && <span>- {time}</span>}
                 </div>
                 <div
                   className={`max-w-[82%] px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words shadow-xs ${
                     isMe
-                      ? 'bg-brand-500 text-white rounded-tr-xs'
+                      ? 'bg-tomato text-white rounded-tr-xs'
                       : 'bg-white border border-slate-200/80 text-slate-800 rounded-tl-xs'
                   }`}
                 >
@@ -111,7 +111,7 @@ export function LiveChat({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Type a message..."
-          className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 bg-slate-50"
+          className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-slate-50"
         />
         <Button
           type="submit"

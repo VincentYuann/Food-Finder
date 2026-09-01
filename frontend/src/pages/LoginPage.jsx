@@ -53,14 +53,14 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-6 bg-radial from-brand-50/40 via-slate-50 to-slate-100">
+    <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-brand-400 flex items-center justify-center text-white mx-auto shadow-lg shadow-brand-500/25 mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-tomato flex items-center justify-center text-white mx-auto shadow-sm shadow-tomato/25 mb-4">
             <UtensilsCrossed className="w-7 h-7" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-heading font-bold text-slate-900 tracking-tight">
             FoodFinder
           </h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -69,7 +69,7 @@ export function LoginPage() {
         </div>
 
         {/* Auth Card */}
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-card p-6 sm:p-8">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-container p-6 sm:p-8">
           {/* Tab Switcher */}
           <div className="flex rounded-xl bg-slate-100 p-1 mb-6 border border-slate-200/60">
             <button

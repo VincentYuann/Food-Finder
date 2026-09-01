@@ -29,14 +29,14 @@ export function Navbar() {
             to="/"
             className="flex items-center gap-2.5 group transition-transform active:scale-95"
           >
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-400 flex items-center justify-center text-white shadow-md shadow-brand-500/20 group-hover:shadow-brand-500/30 transition-all">
+            <div className="w-10 h-10 rounded-xl bg-tomato flex items-center justify-center text-white shadow-sm shadow-tomato/25 group-hover:bg-tomato-hover transition-all">
               <UtensilsCrossed className="w-5 h-5" />
             </div>
             <div className="flex flex-col">
-              <span className="text-lg font-bold text-slate-900 tracking-tight leading-none group-hover:text-brand-500 transition-colors">
+              <span className="text-lg font-heading font-bold text-slate-900 tracking-tight leading-none group-hover:text-tomato transition-colors">
                 FoodFinder
               </span>
-              <span className="text-[10px] font-medium text-slate-400 uppercase tracking-widest leading-none mt-1">
+              <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider leading-none mt-1">
                 Eat Together
               </span>
             </div>
@@ -52,13 +52,13 @@ export function Navbar() {
                   <Link
                     key={link.path}
                     to={link.path}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-medium transition-all ${
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-heading font-medium transition-all ${
                       isActive
-                        ? 'bg-brand-50 text-brand-600 font-semibold shadow-xs'
+                        ? 'bg-tomato-light text-tomato font-semibold shadow-xs'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-brand-500' : 'text-slate-400'}`} />
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-tomato' : 'text-slate-400'}`} />
                     {link.name}
                   </Link>
                 );
@@ -81,7 +81,7 @@ export function Navbar() {
                   size="sm"
                   onClick={handleLogout}
                   icon={LogOut}
-                  className="text-slate-500 hover:text-rose-600 hover:bg-rose-50"
+                  className="text-slate-600 hover:text-red-600 hover:bg-slate-100"
                 >
                   Log out
                 </Button>

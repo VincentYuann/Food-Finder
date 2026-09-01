@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Mail, Lock, Sparkles, AlertCircle } from 'lucide-react';
+import { User, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-react';
 import { Button } from '../common/Button';
 
 export function RegisterForm({ onSubmit, isLoading, error }) {
@@ -78,8 +78,8 @@ export function RegisterForm({ onSubmit, isLoading, error }) {
         variant="primary"
         size="lg"
         isLoading={isLoading}
-        icon={Sparkles}
-        className="w-full font-bold shadow-md shadow-brand-500/20 mt-2"
+        icon={ArrowRight}
+        className="w-full shadow-sm hover:shadow-glow-tomato mt-2"
       >
         Create Account
       </Button>

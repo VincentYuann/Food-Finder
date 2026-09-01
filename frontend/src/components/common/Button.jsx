@@ -13,15 +13,15 @@ export function Button({
   onClick,
   ...props
 }) {
-  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none active:scale-[0.98]';
+  const baseClasses = 'inline-flex items-center justify-center font-heading font-medium tracking-tight rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed select-none active:scale-[0.98]';
 
   const variantClasses = {
-    primary: 'bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white shadow-sm hover:shadow focus:ring-brand-400',
-    secondary: 'bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-800 focus:ring-slate-400 border border-slate-200',
-    danger: 'bg-rose-500 hover:bg-rose-600 active:bg-rose-700 text-white shadow-sm focus:ring-rose-400',
-    warning: 'bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white shadow-sm focus:ring-amber-400',
-    outline: 'bg-transparent border border-slate-300 hover:bg-slate-50 active:bg-slate-100 text-slate-700 focus:ring-brand-400',
-    ghost: 'bg-transparent hover:bg-slate-100 text-slate-600 hover:text-slate-900 focus:ring-slate-300',
+    primary: 'bg-tomato hover:bg-tomato-hover active:bg-brand-700 text-white shadow-xs hover:shadow-md hover:shadow-tomato/20 hover:-translate-y-0.5 focus:ring-tomato/40',
+    secondary: 'bg-slate-100 hover:bg-slate-200/80 active:bg-slate-300 text-slate-700 focus:ring-slate-300 border border-slate-200/80',
+    outline: 'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100 text-slate-700 focus:ring-slate-300 shadow-xs hover:-translate-y-0.5',
+    ghost: 'bg-transparent hover:bg-slate-100/80 text-slate-600 hover:text-slate-900 focus:ring-slate-300',
+    danger: 'bg-red-50 hover:bg-red-100 active:bg-red-200 text-red-600 border border-red-200/70 focus:ring-red-300',
+    warning: 'bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-800 border border-amber-200/70 focus:ring-amber-300',
   };
 
   const sizeClasses = {

@@ -39,7 +39,7 @@ export function LobbyHeader({ lobby }) {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-heading font-bold text-slate-900 tracking-tight">
               {lobby?.name || 'Untitled Lobby'}
             </h1>
             <StatusBadge status={lobby?.status} />
@@ -54,7 +54,7 @@ export function LobbyHeader({ lobby }) {
             {inviteCode && (
               <div className="flex items-center gap-2">
                 <span>Invite Code:</span>
-                <span className="px-2.5 py-1 rounded-lg bg-brand-50 border border-brand-200 text-brand-700 font-mono font-bold text-xs tracking-wider">
+                <span className="px-2.5 py-1 rounded-lg bg-tomato-light border border-tomato-border text-tomato font-mono font-bold text-xs tracking-wider">
                   {inviteCode}
                 </span>
                 <button

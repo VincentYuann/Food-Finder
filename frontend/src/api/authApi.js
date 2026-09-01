@@ -1,53 +1,42 @@
-import { apiFetch, errorFrom } from './client';
+import { apiClient } from './client';
 
 export const authApi = {
   async getProfile() {
-    const response = await apiFetch('/api/users/profile');
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Not authenticated'));
-    }
-    return response.json();
+    const { data } = await apiClient.get('/api/users/profile');
+    return data;
   },
 
   async login({ identifier, password }) {
     const isEmail = identifier.includes('@');
-    const response = await apiFetch('/api/users/login', {
-      method: 'POST',
-      body: {
-        email: isEmail ? identifier : undefined,
-        username: isEmail ? undefined : identifier,
-        password,
-      },
+    const { data } = await apiClient.post('/api/users/login', {
+      email: isEmail ? identifier : undefined,
+      username: isEmail ? undefined : identifier,
+      password,
     });
-
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Login failed'));
-    }
-    return response.json();
+    return data;
   },
 
   async register({ username, email, password }) {
-    const response = await apiFetch('/api/users/register', {
-      method: 'POST',
-      body: { username, email, password },
+    const { data } = await apiClient.post('/api/users/register', {
+      username,
+      email,
+      password,
     });
-
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Registration failed'));
-    }
-    return response.json();
+    return data;
   },
 
   async logout() {
-    const response = await apiFetch('/api/users/logout', { method: 'POST' });
-    return response.ok;
+    try {
+      await apiClient.post('/api/users/logout');
+    } catch {
+      // Ignore errors if already logged out or expired
+    }
+    return true;
   },
 
   async getUserLobbies() {
-    const response = await apiFetch('/api/users/profile/lobbies');
-    if (!response.ok) {
-      throw new Error(await errorFrom(response, 'Failed to fetch user lobbies'));
-    }
-    return response.json();
+    const { data } = await apiClient.get('/api/users/profile/lobbies');
+    return data;
   },
 };
+

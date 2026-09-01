@@ -90,9 +90,9 @@ export function SearchPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
       {/* Search Header Banner */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-soft">
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-ambient">
         <div className="max-w-3xl">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-heading font-bold text-slate-900 tracking-tight">
             Discover Great Places to Eat
           </h1>
           <p className="text-sm text-slate-500 mt-1">
@@ -111,7 +111,7 @@ export function SearchPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search restaurant name, food, or keywords..."
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-white"
               />
             </div>
 
@@ -120,7 +120,7 @@ export function SearchPage() {
               <select
                 value={cuisine}
                 onChange={(e) => setCuisine(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white text-slate-700"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-white text-slate-700 font-medium"
               >
                 {CUISINES.map((c) => (
                   <option key={c} value={c}>
@@ -138,7 +138,7 @@ export function SearchPage() {
                 size="md"
                 isLoading={isLoading}
                 icon={Search}
-                className="w-full font-bold shadow-md shadow-brand-500/20 py-2.5"
+                className="w-full shadow-sm hover:shadow-glow-tomato py-2.5"
               >
                 Search
               </Button>
@@ -164,7 +164,7 @@ export function SearchPage() {
               ) : (
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="outline"
                   size="sm"
                   onClick={requestLocation}
                   isLoading={isLocating}

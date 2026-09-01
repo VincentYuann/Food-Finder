@@ -14,7 +14,7 @@ import { Button } from '../components/common/Button';
 import { Plus, Utensils, AlertTriangle } from 'lucide-react';
 
 const PHASE_ANNOUNCEMENTS = {
-  voting: 'Everyone is ready — voting has started!',
+  voting: 'Everyone is ready - voting has started!',
   closed: 'The lobby is closed. The votes are in!',
   active: 'The lobby is open for suggestions again.',
 };
