@@ -30,12 +30,19 @@ export function MemberList({
     }
   };
 
-  const actionName = isActive ? 'Start Voting' : 'Close Lobby';
   const btnLabel = isClosed
     ? 'Lobby Closed'
     : myReady
-    ? `Unready (${readyCount}/${totalMembers} ready)`
-    : `${actionName} (${readyCount}/${totalMembers} ready)`;
+    ? `Ready (${readyCount}/${totalMembers} ready)`
+    : isActive
+    ? `I'm Ready to Vote (${readyCount}/${totalMembers})`
+    : `Done Voting (${readyCount}/${totalMembers})`;
+
+  const helperText = isClosed
+    ? 'This lobby has completed its vote.'
+    : isActive
+    ? 'When all members are ready, voting unlocks automatically.'
+    : 'Mark yourself done once you have selected your top pick.';
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft p-5 flex flex-col h-full">
@@ -73,7 +80,7 @@ export function MemberList({
                       @{user.username || 'User'}
                     </span>
                     {isHost && (
-                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.2 rounded">
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
                         <Crown className="w-3 h-3 text-amber-600" /> Host
                       </span>
                     )}
@@ -88,17 +95,20 @@ export function MemberList({
       </ul>
 
       {/* Ready Action Button */}
-      <div className="pt-4 border-t border-slate-100 mt-4">
+      <div className="pt-4 border-t border-slate-100 mt-4 space-y-2">
         <Button
           variant={isClosed ? 'secondary' : myReady ? 'outline' : 'primary'}
           size="md"
           onClick={handleToggle}
           disabled={isClosed}
           isLoading={isUpdating}
-          className="w-full shadow-xs"
+          className="w-full shadow-xs font-heading font-semibold"
         >
           {btnLabel}
         </Button>
+        <p className="text-[11px] text-slate-500 text-center leading-tight">
+          {helperText}
+        </p>
       </div>
     </div>
   );

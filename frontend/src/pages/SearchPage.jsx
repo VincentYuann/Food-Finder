@@ -47,14 +47,13 @@ export function SearchPage() {
     }
   }, [locationError, showToast]);
 
-  const handleSearch = async (e) => {
-    e?.preventDefault();
+  const executeSearch = async (q = query, c = cuisine, r = radius) => {
     setIsLoading(true);
     setHasSearched(true);
 
     const queryParts = [];
-    if (cuisine && cuisine !== 'All Cuisines') queryParts.push(cuisine);
-    if (query.trim()) queryParts.push(query.trim());
+    if (c && c !== 'All Cuisines') queryParts.push(c);
+    if (q.trim()) queryParts.push(q.trim());
 
     const finalQuery = queryParts.join(' ') || 'restaurant';
 
@@ -64,7 +63,7 @@ export function SearchPage() {
         data = await restaurantApi.searchNearby({
           latitude: location.latitude,
           longitude: location.longitude,
-          radius: String(radius),
+          radius: String(r),
           keyword: finalQuery,
         });
       } else {
@@ -81,16 +80,51 @@ export function SearchPage() {
     }
   };
 
-  // Perform initial search on mount (e.g. popular spots)
+  const handleSearch = (e) => {
+    e?.preventDefault();
+    executeSearch(query, cuisine, radius);
+  };
+
+  const handleCuisineSelect = (c) => {
+    setCuisine(c);
+    executeSearch(query, c, radius);
+  };
+
+  const handleRadiusChange = (newRadius) => {
+    setRadius(newRadius);
+  };
+
+  const handleRadiusCommit = (finalRadius) => {
+    const r = typeof finalRadius === 'number' ? finalRadius : radius;
+    if (location) {
+      executeSearch(query, cuisine, r);
+    }
+  };
+
+  const handlePresetSelect = (newRadius) => {
+    setRadius(newRadius);
+    if (location) {
+      executeSearch(query, cuisine, newRadius);
+    }
+  };
+
+  const handleResetFilters = () => {
+    setQuery('');
+    setCuisine('All Cuisines');
+    setRadius(5);
+    executeSearch('', 'All Cuisines', 5);
+  };
+
+  // Perform initial search on mount
   useEffect(() => {
-    handleSearch();
+    executeSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
       {/* Search Header Banner */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-ambient">
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-ambient space-y-6">
         <div className="max-w-3xl">
           <h1 className="text-2xl sm:text-3xl font-heading font-bold text-slate-900 tracking-tight">
             Discover Great Places to Eat
@@ -101,7 +135,7 @@ export function SearchPage() {
         </div>
 
         {/* Search Controls Form */}
-        <form onSubmit={handleSearch} className="mt-6 space-y-4">
+        <form onSubmit={handleSearch} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             {/* Keyword search */}
             <div className="sm:col-span-6 relative">
@@ -111,15 +145,17 @@ export function SearchPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search restaurant name, food, or keywords..."
+                aria-label="Search restaurant name, food, or keywords"
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-white"
               />
             </div>
 
-            {/* Cuisine Selector */}
+            {/* Cuisine Dropdown Selector */}
             <div className="sm:col-span-3">
               <select
                 value={cuisine}
-                onChange={(e) => setCuisine(e.target.value)}
+                onChange={(e) => handleCuisineSelect(e.target.value)}
+                aria-label="Filter by cuisine"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-white text-slate-700 font-medium"
               >
                 {CUISINES.map((c) => (
@@ -145,8 +181,36 @@ export function SearchPage() {
             </div>
           </div>
 
+          {/* Quick Cuisine Carousel Strip */}
+          <div className="pt-1">
+            <div
+              role="group"
+              aria-label="Cuisine quick filters"
+              className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth"
+            >
+              {CUISINES.map((c) => {
+                const isSelected = cuisine === c;
+                return (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => handleCuisineSelect(c)}
+                    aria-pressed={isSelected}
+                    className={`shrink-0 px-3.5 py-2 rounded-full text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-tomato/30 active:scale-95 ${
+                      isSelected
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    {c}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Location & Radius Row */}
-          <div className="flex flex-wrap items-center justify-between gap-4 pt-3 border-t border-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-slate-100">
             <div className="flex items-center gap-3">
               {location ? (
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
@@ -157,6 +221,7 @@ export function SearchPage() {
                     onClick={clearLocation}
                     className="ml-1 text-emerald-600 hover:text-emerald-900"
                     title="Clear location"
+                    aria-label="Clear GPS location"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -169,7 +234,7 @@ export function SearchPage() {
                   onClick={requestLocation}
                   isLoading={isLocating}
                   icon={Navigation}
-                  className="text-xs"
+                  className="text-xs font-medium"
                 >
                   Use My Current Location
                 </Button>
@@ -177,17 +242,52 @@ export function SearchPage() {
             </div>
 
             {location && (
-              <div className="flex items-center gap-3 text-xs text-slate-600">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
-                <span>Search Radius: <strong className="text-slate-900">{radius} miles</strong></span>
-                <input
-                  type="range"
-                  min="1"
-                  max="25"
-                  value={radius}
-                  onChange={(e) => setRadius(Number(e.target.value))}
-                  className="w-24 sm:w-32 accent-brand-500 cursor-pointer"
-                />
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+                <div className="flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Radius: <strong className="text-slate-900 font-semibold">{radius} mi</strong></span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="1"
+                    max="25"
+                    value={radius}
+                    onChange={(e) => handleRadiusChange(Number(e.target.value))}
+                    onPointerUp={(e) => handleRadiusCommit(Number(e.target.value))}
+                    onKeyUp={(e) => {
+                      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
+                        handleRadiusCommit(Number(e.target.value));
+                      }
+                    }}
+                    aria-label="Search radius in miles"
+                    aria-valuenow={radius}
+                    aria-valuemin="1"
+                    aria-valuemax="25"
+                    className="w-24 sm:w-28 accent-tomato cursor-pointer"
+                  />
+                  {/* Quick Distance Presets */}
+                  <div className="flex items-center gap-1">
+                    {[
+                      { label: '2 mi', val: 2 },
+                      { label: '5 mi', val: 5 },
+                      { label: '15 mi', val: 15 },
+                    ].map((p) => (
+                      <button
+                        key={p.val}
+                        type="button"
+                        onClick={() => handlePresetSelect(p.val)}
+                        className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
+                          radius === p.val
+                            ? 'bg-tomato-light text-tomato border border-tomato/30 font-semibold'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -196,25 +296,47 @@ export function SearchPage() {
 
       {/* Results Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-          <Utensils className="w-5 h-5 text-brand-500" />
+        <h2 className="text-xl font-heading font-bold text-slate-900 flex items-center gap-2">
+          <Utensils className="w-5 h-5 text-tomato" />
           <span>{hasSearched ? `Results (${results.length})` : 'Popular Restaurants'}</span>
         </h2>
       </div>
 
       {/* Results Grid */}
       {isLoading ? (
-        <div className="py-20 flex flex-col items-center justify-center text-brand-500 gap-3">
+        <div className="py-20 flex flex-col items-center justify-center text-tomato gap-3">
           <LoadingSpinner size="lg" />
-          <p className="text-sm font-medium text-slate-500">Searching restaurants...</p>
+          <p className="text-sm font-medium text-slate-500">Searching delicious spots...</p>
         </div>
       ) : results.length === 0 ? (
         <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-12 text-center">
-          <Utensils className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-slate-800">No restaurants found</h3>
+          <div className="w-12 h-12 rounded-full bg-tomato-light/60 text-tomato flex items-center justify-center mx-auto mb-3">
+            <Utensils className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-heading font-bold text-slate-800">No restaurants found</h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-            Try adjusting your search query, selecting another cuisine, or expanding your radius.
+            Try adjusting your search query, choosing another cuisine, or expanding your radius.
           </p>
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleResetFilters}
+            >
+              Reset Filters
+            </Button>
+            {location && radius < 15 && (
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => handlePresetSelect(15)}
+              >
+                Expand to 15 miles
+              </Button>
+            )}
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -18,13 +18,13 @@ export function WinnerSpotlight({ winningOption, voteCount }) {
           </div>
           <div>
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-sm text-[11px] font-heading font-bold tracking-wider uppercase text-amber-100 mb-1">
-              Tonight's Pick / Winner
+              Group Decision
             </div>
             <h3 className="text-2xl font-heading font-bold tracking-tight">
               {restaurant.name}
             </h3>
             <p className="text-sm text-amber-100 font-medium mt-0.5">
-              The group has chosen! Won with <strong>{voteCount} {voteCount === 1 ? 'vote' : 'votes'}</strong>.
+              Consensus reached! Won with <strong>{voteCount} {voteCount === 1 ? 'vote' : 'votes'}</strong>.
             </p>
           </div>
         </div>
@@ -34,9 +34,9 @@ export function WinnerSpotlight({ winningOption, voteCount }) {
           size="md"
           onClick={() => openDetailsModal(restaurant.api_place_id)}
           icon={Info}
-          className="bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-950 shadow-md shrink-0"
+          className="bg-white text-slate-900 hover:bg-slate-50 hover:text-slate-950 shadow-md shrink-0 font-heading font-semibold"
         >
-          View Details & Hours
+          View Restaurant Details
         </Button>
       </div>
     </div>

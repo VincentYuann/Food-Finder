@@ -59,8 +59,9 @@ export function LobbyHeader({ lobby }) {
                 </span>
                 <button
                   onClick={handleCopy}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-tomato/30"
                   title="Copy invite link"
+                  aria-label="Copy invite link"
                 >
                   {copied ? (
                     <>

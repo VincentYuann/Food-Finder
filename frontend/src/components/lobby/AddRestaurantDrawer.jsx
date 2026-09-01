@@ -73,7 +73,7 @@ export function AddRestaurantDrawer({ isOpen, onClose, lobbyId, onRestaurantAdde
             onClick={() => setTab('search')}
             className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               tab === 'search'
-                ? 'bg-white text-brand-600 shadow-sm'
+                ? 'bg-white text-tomato shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -85,7 +85,7 @@ export function AddRestaurantDrawer({ isOpen, onClose, lobbyId, onRestaurantAdde
             onClick={() => setTab('saved')}
             className={`flex-1 py-2 px-4 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               tab === 'saved'
-                ? 'bg-white text-brand-600 shadow-sm'
+                ? 'bg-white text-tomato shadow-xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -105,7 +105,7 @@ export function AddRestaurantDrawer({ isOpen, onClose, lobbyId, onRestaurantAdde
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by restaurant name or cuisine (e.g. Pizza, Ramen)..."
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-brand-400 bg-white"
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-white"
                 />
               </div>
               <Button type="submit" variant="primary" size="md" isLoading={isSearching}>
@@ -115,12 +115,14 @@ export function AddRestaurantDrawer({ isOpen, onClose, lobbyId, onRestaurantAdde
 
             <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
               {isSearching ? (
-                <div className="py-12 flex justify-center text-brand-500">
+                <div className="py-12 flex justify-center text-tomato">
                   <LoadingSpinner size="md" />
                 </div>
               ) : searchResults.length === 0 ? (
                 <p className="text-center text-xs text-slate-400 py-8">
-                  {searchQuery ? 'No results found. Try a different term.' : 'Enter a query and hit Search.'}
+                  {searchQuery
+                    ? 'No restaurants matched your search. Try searching for a cuisine or street name.'
+                    : 'Enter a restaurant name or food keyword, then click Search.'}
                 </p>
               ) : (
                 searchResults.map((r) => {
@@ -181,12 +183,12 @@ export function AddRestaurantDrawer({ isOpen, onClose, lobbyId, onRestaurantAdde
         {tab === 'saved' && (
           <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
             {isLoadingSaved ? (
-              <div className="py-12 flex justify-center text-brand-500">
+              <div className="py-12 flex justify-center text-tomato">
                 <LoadingSpinner size="md" />
               </div>
             ) : savedRestaurants.length === 0 ? (
               <p className="text-center text-xs text-slate-400 py-8">
-                You have not saved any restaurants yet. Search and save spots to see them here.
+                You haven't saved any spots yet. Browse restaurants and click "Save Spot" to bookmark candidates here.
               </p>
             ) : (
               savedRestaurants.map((r) => {

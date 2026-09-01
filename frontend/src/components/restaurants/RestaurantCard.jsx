@@ -54,15 +54,22 @@ export function RestaurantCard({
   const photoUrl = !imageError && restaurant.photo_url ? getImageUrl(restaurant.photo_url) : null;
 
   return (
-    <div className={`bg-white rounded-2xl border border-slate-200/80 shadow-ambient hover:shadow-lift hover:-translate-y-1 transition-all duration-200 overflow-hidden flex flex-col ${className}`}>
+    <div className={`bg-white rounded-2xl border border-slate-200/80 shadow-ambient hover:shadow-card hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col ${className}`}>
       {/* Image container */}
-      <div className="relative h-44 w-full bg-slate-100 overflow-hidden">
+      <div
+        className="relative h-44 w-full bg-slate-100 overflow-hidden cursor-pointer group"
+        onClick={() => openDetailsModal(restaurant.api_place_id)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && openDetailsModal(restaurant.api_place_id)}
+        aria-label={`View details for ${restaurant.name}`}
+      >
         {photoUrl ? (
           <img
             src={photoUrl}
             alt={restaurant.name}
             onError={() => setImageError(true)}
-            className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
           />
         ) : (
@@ -85,7 +92,7 @@ export function RestaurantCard({
 
         {/* Price Tag on image */}
         {restaurant.price_level && (
-          <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-white/90 backdrop-blur-md text-emerald-700 text-xs font-bold shadow-xs">
+          <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-slate-900/75 backdrop-blur-md text-white text-xs font-semibold">
             {'$'.repeat(restaurant.price_level)}
           </div>
         )}
@@ -95,7 +102,10 @@ export function RestaurantCard({
       <div className="p-4 flex-1 flex flex-col justify-between">
         <div>
           <div className="flex items-start justify-between gap-2">
-            <h4 className="font-heading font-semibold text-slate-900 text-base leading-snug line-clamp-1">
+            <h4
+              onClick={() => openDetailsModal(restaurant.api_place_id)}
+              className="font-heading font-semibold text-slate-900 text-base leading-snug line-clamp-1 cursor-pointer hover:text-tomato transition-colors"
+            >
               {restaurant.name}
             </h4>
           </div>
@@ -103,7 +113,7 @@ export function RestaurantCard({
           <div className="flex flex-wrap items-center gap-2 mt-2">
             {restaurant.primary_type && (
               <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md capitalize">
-                {restaurant.primary_type}
+                {restaurant.primary_type.replace(/_/g, ' ')}
               </span>
             )}
             {restaurant.is_open !== null && restaurant.is_open !== undefined && (
@@ -129,16 +139,16 @@ export function RestaurantCard({
                 onClick={handleSave}
                 disabled={isSaved || isSaving}
                 icon={isSaved ? BookmarkCheck : Bookmark}
-                className={`flex-1 ${isSaved ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : ''}`}
+                className={`flex-1 min-h-[38px] ${isSaved ? 'text-tomato bg-tomato-light/40 border-tomato/20' : ''}`}
               >
                 {isSaved ? 'Saved' : 'Save'}
               </Button>
               <Button
-                variant="primary"
+                variant="outline"
                 size="sm"
                 onClick={() => openDetailsModal(restaurant.api_place_id)}
                 icon={Info}
-                className="flex-1"
+                className="flex-1 min-h-[38px]"
               >
                 Details
               </Button>

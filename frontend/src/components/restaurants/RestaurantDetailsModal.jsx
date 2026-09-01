@@ -1,10 +1,26 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Modal } from '../common/Modal';
 import { restaurantApi } from '../../api/restaurantApi';
 import { getImageUrl } from '../../api/client';
 import { LoadingSpinner } from '../common/LoadingSpinner';
-import { Star, Phone, Globe, Navigation, Search, Clock, MapPin, AlertCircle, Utensils } from 'lucide-react';
+import {
+  Star,
+  Phone,
+  Globe,
+  Navigation,
+  Clock,
+  MapPin,
+  AlertCircle,
+  Utensils,
+  Bookmark,
+  BookmarkCheck,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+} from 'lucide-react';
 import { StatusBadge } from '../common/StatusBadge';
+import { useAuth } from '../../hooks/useAuth';
+import { useToast } from '../../hooks/useToast';
 
 function checkIfOpen(openingHoursArray) {
   if (!openingHoursArray || !Array.isArray(openingHoursArray) || openingHoursArray.length === 0) return null;
@@ -47,8 +63,17 @@ function checkIfOpen(openingHoursArray) {
       }
     }
 
-    if (startMins !== -1 && endMins !== -1 && currentMinutes >= startMins && currentMinutes <= endMins) {
-      return true;
+    if (startMins !== -1 && endMins !== -1) {
+      if (endMins < startMins) {
+        // Range crosses midnight (e.g. 11:30 AM to 2:00 AM)
+        if (currentMinutes >= startMins || currentMinutes <= endMins) {
+          return true;
+        }
+      } else {
+        if (currentMinutes >= startMins && currentMinutes <= endMins) {
+          return true;
+        }
+      }
     }
   }
 
@@ -59,36 +84,40 @@ export function RestaurantDetailsModal({ placeId, onClose }) {
   const [details, setDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isHoursExpanded, setIsHoursExpanded] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
+  const { savedPlaceIds, addSavedPlaceId } = useAuth();
+  const { showToast } = useToast();
+
+  const fetchDetails = useCallback(() => {
     if (!placeId) return;
 
-    let isMounted = true;
     setIsLoading(true);
     setError(null);
 
     restaurantApi
       .getDetails(placeId)
       .then((data) => {
-        if (isMounted) setDetails(data);
+        setDetails(data);
       })
       .catch((err) => {
-        if (isMounted) setError(err.message || 'Failed to load details');
+        setError(err.message || 'Failed to load details');
       })
       .finally(() => {
-        if (isMounted) setIsLoading(false);
+        setIsLoading(false);
       });
-
-    return () => {
-      isMounted = false;
-    };
   }, [placeId]);
 
+  useEffect(() => {
+    fetchDetails();
+  }, [fetchDetails]);
+
   const priceDescriptors = {
-    1: 'Inexpensive ($)',
-    2: 'Moderate ($$)',
-    3: 'Expensive ($$$)',
-    4: 'Very Expensive ($$$$)',
+    1: 'Inexpensive',
+    2: 'Moderate',
+    3: 'Expensive',
+    4: 'Very Expensive',
   };
 
   const isCurrentlyOpen =
@@ -97,165 +126,265 @@ export function RestaurantDetailsModal({ placeId, onClose }) {
       : checkIfOpen(details?.opening_hours);
 
   const todayDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const todayEntry = details?.opening_hours?.find((str) => str.startsWith(todayDayName));
+  const todayHoursStr = todayEntry
+    ? todayEntry.substring(todayEntry.indexOf(':') + 1).trim()
+    : null;
+
+  const isSaved = details && savedPlaceIds.has(details.api_place_id);
+
+  const handleSaveToggle = async () => {
+    if (!details || isSaving) return;
+
+    if (isSaved) {
+      showToast(`${details.name} is already in your saved list`, 'info');
+      return;
+    }
+
+    setIsSaving(true);
+    addSavedPlaceId(details.api_place_id);
+
+    try {
+      await restaurantApi.saveRestaurant({
+        api_place_id: details.api_place_id,
+        name: details.name,
+        address: details.address,
+        latitude: details.latitude,
+        longitude: details.longitude,
+        rating: details.rating,
+        price_level: details.price_level,
+        photo_url: details.photo_url,
+        primary_type: details.primary_type,
+        user_rating_count: details.user_rating_count,
+      });
+      showToast(`${details.name} saved to favorites!`, 'success');
+    } catch (err) {
+      console.error('Failed to save restaurant:', err);
+      showToast(err.message || 'Failed to save restaurant', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
-    <Modal isOpen={!!placeId} onClose={onClose} maxWidth="max-w-2xl">
+    <Modal
+      isOpen={!!placeId}
+      onClose={onClose}
+      maxWidth="max-w-xl"
+      headerless
+      showCloseButton
+      ariaLabel={details?.name || 'Restaurant details'}
+    >
       {isLoading ? (
-        <div className="py-16 flex flex-col items-center justify-center gap-3 text-slate-500">
-          <LoadingSpinner size="lg" className="text-brand-500" />
-          <p className="text-sm font-medium">Fetching restaurant details...</p>
+        <div className="py-24 flex flex-col items-center justify-center gap-3 text-slate-500">
+          <LoadingSpinner size="lg" className="text-tomato" />
+          <p className="text-sm font-medium font-heading">Loading restaurant details...</p>
         </div>
       ) : error || !details ? (
-        <div className="py-12 flex flex-col items-center justify-center gap-3 text-rose-600">
-          <AlertCircle className="w-10 h-10" />
-          <p className="text-sm font-medium">{error || 'Could not load details'}</p>
+        <div className="p-10 flex flex-col items-center justify-center gap-3 text-center">
+          <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6" />
+          </div>
+          <h4 className="font-heading font-bold text-slate-900 text-base">Could not load details</h4>
+          <p className="text-xs text-slate-500 max-w-xs">{error || 'Please check your connection and try again.'}</p>
+          <button
+            type="button"
+            onClick={fetchDetails}
+            className="mt-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-colors"
+          >
+            Try Again
+          </button>
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Hero Image */}
-          {details.photo_url && (
-            <div className="relative -mt-6 -mx-6 h-56 bg-slate-100 overflow-hidden">
+        <div>
+          {/* Full Bleed Hero Banner */}
+          {details.photo_url ? (
+            <div className="relative h-60 sm:h-64 w-full bg-slate-100 overflow-hidden">
               <img
                 src={getImageUrl(details.photo_url)}
                 alt={details.name}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent" />
-              <div className="absolute bottom-4 left-6 right-6 text-white">
-                <h2 className="text-2xl font-extrabold tracking-tight drop-shadow-sm">
-                  {details.name}
-                </h2>
-              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/30 pointer-events-none" />
+            </div>
+          ) : (
+            <div className="h-32 w-full bg-tomato-light/40 flex items-center justify-center text-tomato">
+              <Utensils className="w-10 h-10 opacity-70" />
             </div>
           )}
 
-          {/* Header info (if no photo, show title here) */}
-          {!details.photo_url && (
+          {/* Modal Body */}
+          <div className="p-6 space-y-5">
+            {/* Title & Identity Header */}
             <div>
-              <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-heading font-extrabold text-slate-900 tracking-tight leading-snug">
                 {details.name}
               </h2>
-            </div>
-          )}
 
-          {/* Meta badges row */}
-          <div className="flex flex-wrap items-center gap-3">
-            {details.rating && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 font-bold text-sm">
-                <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                <span>{parseFloat(details.rating).toFixed(1)}</span>
-                {details.user_rating_count && (
-                  <span className="text-xs text-amber-700 font-normal">
-                    ({details.user_rating_count} reviews)
+              {details.address && (
+                <div className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-500 mt-1">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span className="truncate">{details.address}</span>
+                </div>
+              )}
+
+              {/* Harmonized Metadata Badges Row */}
+              <div className="flex flex-wrap items-center gap-2.5 mt-2.5">
+                {/* Live Status Badge */}
+                {isCurrentlyOpen !== null && (
+                  <StatusBadge status={isCurrentlyOpen} type="openStatus" />
+                )}
+
+                {/* Rating Badge (Star Gold) */}
+                {details.rating && (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50/90 border border-amber-200/80 text-amber-900 text-xs font-bold font-heading">
+                    <Star className="w-3.5 h-3.5 fill-[#f59e0b] text-[#f59e0b]" />
+                    <span>{parseFloat(details.rating).toFixed(1)}</span>
+                    {details.user_rating_count && (
+                      <span className="text-[11px] font-normal text-slate-600">
+                        ({details.user_rating_count.toLocaleString()})
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Price Badge */}
+                {details.price_level && (
+                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold">
+                    {'$'.repeat(details.price_level)} · {priceDescriptors[details.price_level] || 'Moderate'}
+                  </span>
+                )}
+
+                {/* Cuisine / Category */}
+                {details.primary_type && (
+                  <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold capitalize flex items-center gap-1.5">
+                    <Utensils className="w-3 h-3 text-slate-500" />
+                    {details.primary_type.replace(/_/g, ' ')}
                   </span>
                 )}
               </div>
-            )}
-
-            {details.price_level && (
-              <span className="px-3 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
-                {priceDescriptors[details.price_level] || '$'.repeat(details.price_level)}
-              </span>
-            )}
-
-            {details.primary_type && (
-              <span className="px-3 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold capitalize flex items-center gap-1.5">
-                <Utensils className="w-3.5 h-3.5 text-slate-500" />
-                {details.primary_type}
-              </span>
-            )}
-
-            {isCurrentlyOpen !== null && (
-              <StatusBadge status={isCurrentlyOpen} type="openStatus" />
-            )}
-          </div>
-
-          {/* Address */}
-          <div className="flex items-start gap-2.5 text-sm text-slate-600 bg-slate-50 p-3.5 rounded-xl border border-slate-200/70">
-            <MapPin className="w-4 h-4 text-brand-500 shrink-0 mt-0.5" />
-            <span>{details.address || 'Address not available'}</span>
-          </div>
-
-          {/* Action Links Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            {details.phone_number && (
-              <a
-                href={`tel:${details.phone_number}`}
-                className="flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-colors shadow-xs"
-              >
-                <Phone className="w-4 h-4 text-brand-500" />
-                Call
-              </a>
-            )}
-            {details.website_url && (
-              <a
-                href={details.website_url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-colors shadow-xs"
-              >
-                <Globe className="w-4 h-4 text-brand-500" />
-                Website
-              </a>
-            )}
-            {details.google_maps_url && (
-              <a
-                href={details.google_maps_url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-colors shadow-xs"
-              >
-                <Navigation className="w-4 h-4 text-brand-500" />
-                Directions
-              </a>
-            )}
-            <a
-              href={`https://www.google.com/search?q=${encodeURIComponent(`${details.name} ${details.address || ''}`)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center justify-center gap-2 p-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-colors shadow-xs"
-            >
-              <Search className="w-4 h-4 text-brand-500" />
-              Google
-            </a>
-          </div>
-
-          {/* Opening Hours list */}
-          {details.opening_hours && Array.isArray(details.opening_hours) && details.opening_hours.length > 0 && (
-            <div className="space-y-3 pt-2">
-              <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-brand-500" />
-                Opening Hours
-              </h4>
-              <ul className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden text-xs">
-                {details.opening_hours.map((dayStr, idx) => {
-                  const isToday = dayStr.startsWith(todayDayName);
-                  const colonIdx = dayStr.indexOf(':');
-                  const day = colonIdx !== -1 ? dayStr.substring(0, colonIdx) : dayStr;
-                  const time = colonIdx !== -1 ? dayStr.substring(colonIdx + 1).trim() : '';
-
-                  return (
-                    <li
-                      key={idx}
-                      className={`flex items-center justify-between p-2.5 ${
-                        isToday ? 'bg-brand-50/70 font-semibold text-brand-900' : 'text-slate-700 bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>{day}</span>
-                        {isToday && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold bg-brand-200 text-brand-800">
-                            Today
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-slate-500 font-medium">{time}</span>
-                    </li>
-                  );
-                })}
-              </ul>
             </div>
-          )}
+
+            {/* Action Buttons Row */}
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-2.5">
+                {/* Primary CTA: Get Directions */}
+                {details.google_maps_url && (
+                  <a
+                    href={details.google_maps_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 min-h-[44px] px-4 py-2.5 rounded-xl bg-tomato hover:bg-tomato-hover active:scale-[0.99] text-white font-heading font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-tomato focus:ring-offset-2"
+                  >
+                    <Navigation className="w-4 h-4" />
+                    <span>Get Directions</span>
+                    <ExternalLink className="w-3.5 h-3.5 opacity-75" />
+                  </a>
+                )}
+
+                {/* Core App CTA: Save Spot */}
+                <button
+                  type="button"
+                  onClick={handleSaveToggle}
+                  disabled={isSaving}
+                  className={`min-h-[44px] px-4 py-2.5 rounded-xl border font-heading font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all focus:outline-none focus:ring-2 focus:ring-tomato focus:ring-offset-2 active:scale-[0.99] ${
+                    isSaved
+                      ? 'bg-tomato-light/60 border-tomato/40 text-tomato hover:bg-tomato-light'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                  }`}
+                >
+                  {isSaved ? (
+                    <BookmarkCheck className="w-4 h-4 text-tomato" />
+                  ) : (
+                    <Bookmark className="w-4 h-4 text-slate-500" />
+                  )}
+                  <span>{isSaved ? 'Saved' : 'Save Spot'}</span>
+                </button>
+              </div>
+
+              {/* Secondary Actions: Call & Website */}
+              <div className="flex items-center gap-2.5">
+                {details.phone_number && (
+                  <a
+                    href={`tel:${details.phone_number}`}
+                    className="flex-1 min-h-[42px] px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-tomato active:scale-[0.99]"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-tomato" />
+                    <span>Call {details.phone_number}</span>
+                  </a>
+                )}
+                {details.website_url && (
+                  <a
+                    href={details.website_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 min-h-[42px] px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 transition-colors focus:outline-none focus:ring-2 focus:ring-tomato active:scale-[0.99]"
+                  >
+                    <Globe className="w-3.5 h-3.5 text-tomato" />
+                    <span>Website</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Opening Hours with Progressive Disclosure */}
+            {details.opening_hours && Array.isArray(details.opening_hours) && details.opening_hours.length > 0 && (
+              <div className="p-3.5 rounded-xl border border-slate-200 bg-white space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs sm:text-sm font-heading font-bold text-slate-900">
+                    <Clock className="w-4 h-4 text-tomato" />
+                    <span>Hours of Operation</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsHoursExpanded(!isHoursExpanded)}
+                    aria-expanded={isHoursExpanded}
+                    aria-controls="weekly-hours-list"
+                    className="text-xs font-semibold text-slate-600 hover:text-tomato py-1.5 px-2.5 rounded-lg hover:bg-slate-50 flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-tomato/20"
+                  >
+                    <span>{isHoursExpanded ? 'Hide schedule' : 'View full week'}</span>
+                    {isHoursExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+
+                {/* Today's single row summary */}
+                <div className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-tomato-light/40 border border-tomato/15">
+                  <div className="flex items-center gap-2">
+                    <span className="font-heading font-bold text-slate-900">{todayDayName}</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-heading font-bold uppercase bg-tomato text-white">
+                      Today
+                    </span>
+                  </div>
+                  <span className="font-semibold text-slate-800">{todayHoursStr || 'Hours not listed'}</span>
+                </div>
+
+                {/* Expandable 7-day schedule */}
+                {isHoursExpanded && (
+                  <ul id="weekly-hours-list" className="divide-y divide-slate-100 pt-2 border-t border-slate-100 text-xs text-slate-600 space-y-1">
+                    {details.opening_hours.map((dayStr, idx) => {
+                      const isToday = dayStr.startsWith(todayDayName);
+                      const colonIdx = dayStr.indexOf(':');
+                      const day = colonIdx !== -1 ? dayStr.substring(0, colonIdx) : dayStr;
+                      const time = colonIdx !== -1 ? dayStr.substring(colonIdx + 1).trim() : '';
+
+                      return (
+                        <li
+                          key={idx}
+                          className={`flex items-center justify-between py-1.5 px-2 rounded ${
+                            isToday ? 'bg-slate-50 font-semibold text-slate-900' : ''
+                          }`}
+                        >
+                          <span>{day}</span>
+                          <span className="text-slate-600 font-medium">{time}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </Modal>

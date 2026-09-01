@@ -49,7 +49,7 @@ export function LiveChat({
   const currentStatus = statusConfig[connectionStatus] || statusConfig.offline;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft flex flex-col h-[520px] overflow-hidden">
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft flex flex-col h-[420px] lg:h-[500px] overflow-hidden">
       {/* Chat Header */}
       <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
         <h3 className="font-heading font-semibold text-slate-900 text-sm flex items-center gap-2">
@@ -64,12 +64,18 @@ export function LiveChat({
       </div>
 
       {/* Messages Scroll Area */}
-      <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-[#fafbfe]">
+      <div
+        className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-50/40"
+        role="log"
+        aria-live="polite"
+        aria-relevant="additions"
+        aria-label="Lobby chat messages"
+      >
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-slate-400 text-center px-4">
             <MessageSquare className="w-8 h-8 text-slate-300 mb-2 stroke-1" />
-            <p className="text-xs font-medium">No messages yet.</p>
-            <p className="text-[11px] text-slate-400">Say hello and suggest dinner plans!</p>
+            <p className="text-xs font-medium text-slate-600">No messages yet.</p>
+            <p className="text-[11px] text-slate-500">Say hello and suggest dinner plans!</p>
           </div>
         ) : (
           messages.map((msg, idx) => {
@@ -84,15 +90,15 @@ export function LiveChat({
                 key={msg.id || idx}
                 className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} animate-fade-in`}
               >
-                <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-slate-400">
-                  <span className="font-semibold text-slate-600">@{author}</span>
+                <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-slate-500">
+                  <span className="font-semibold text-slate-700">{isMe ? 'You' : `@${author}`}</span>
                   {time && <span>- {time}</span>}
                 </div>
                 <div
                   className={`max-w-[82%] px-3.5 py-2 rounded-2xl text-xs leading-relaxed break-words shadow-xs ${
                     isMe
-                      ? 'bg-tomato text-white rounded-tr-xs'
-                      : 'bg-white border border-slate-200/80 text-slate-800 rounded-tl-xs'
+                      ? 'bg-tomato text-white rounded-tr-none'
+                      : 'bg-white border border-slate-200/80 text-slate-800 rounded-tl-none'
                   }`}
                 >
                   {msg.content}
@@ -111,7 +117,8 @@ export function LiveChat({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Type a message..."
-          className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-slate-50"
+          aria-label="Chat message"
+          className="flex-1 px-3.5 py-2 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-slate-50"
         />
         <Button
           type="submit"
@@ -120,6 +127,8 @@ export function LiveChat({
           disabled={!content.trim() || isSending}
           icon={Send}
           className="px-3"
+          aria-label="Send message"
+          title="Send message"
         />
       </form>
     </div>
