@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 export function Modal({
@@ -52,10 +53,12 @@ export function Modal({
 
     window.addEventListener('keydown', handleKeyDown);
 
-    // Initial focus on close button or first interactive element
+    // Initial focus on first input if available, or container, avoiding jarring focus rings on close button
     if (modalRef.current) {
-      const firstInteractive = modalRef.current.querySelector('button, [href], input');
-      if (firstInteractive) firstInteractive.focus();
+      const firstInput = modalRef.current.querySelector('input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
+      if (firstInput) {
+        firstInput.focus();
+      }
     }
 
     return () => {
@@ -73,9 +76,9 @@ export function Modal({
     ? { 'aria-labelledby': 'modal-title' }
     : { 'aria-label': ariaLabel || 'Dialog' };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-slate-950/60 backdrop-blur-sm animate-fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto bg-slate-950/60 backdrop-blur-md animate-fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -85,14 +88,14 @@ export function Modal({
     >
       <div
         ref={modalRef}
-        className={`relative w-full ${maxWidth} bg-white rounded-2xl shadow-modal border border-slate-200/80 overflow-hidden transform transition-all duration-200`}
+        className={`relative w-full ${maxWidth} bg-white rounded-3xl shadow-modal border border-slate-200/80 overflow-hidden transform transition-all duration-200 my-auto`}
       >
         {/* Floating Close Button for Headerless / Hero Modals */}
         {headerless && showCloseButton && (
           <button
             type="button"
             onClick={onClose}
-            className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full flex items-center justify-center bg-black/40 hover:bg-black/60 text-white backdrop-blur-md transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-white/80 shadow-md active:scale-95"
+            className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full flex items-center justify-center bg-black/40 hover:bg-black/60 text-white backdrop-blur-md transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/80 shadow-md active:scale-95"
             aria-label="Close dialog"
           >
             <X className="w-5 h-5" />
@@ -111,7 +114,7 @@ export function Modal({
               <button
                 type="button"
                 onClick={onClose}
-                className="w-9 h-9 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 transition-colors focus:outline-none focus:ring-2 focus:ring-tomato"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-tomato"
                 aria-label="Close dialog"
               >
                 <X className="w-5 h-5" />
@@ -123,6 +126,7 @@ export function Modal({
         {/* Content */}
         <div className={headerless ? 'p-0' : 'p-6'}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
