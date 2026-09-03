@@ -1,4 +1,5 @@
 import React from 'react';
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { Navbar } from './components/common/Navbar';
@@ -31,44 +32,48 @@ function ProtectedRoute({ children }) {
 
 export function App() {
   return (
-    <div className="min-h-screen flex flex-col">
-      <Navbar />
-      <main className="flex-1">
-        <Routes>
-          {/* Public Route */}
-          <Route path="/login" element={<LoginPage />} />
+    <>
+      <SpeedInsights />
 
-          {/* Protected Routes */}
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/search"
-            element={
-              <ProtectedRoute>
-                <SearchPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/lobby/:id"
-            element={
-              <ProtectedRoute>
-                <LobbyPage />
-              </ProtectedRoute>
-            }
-          />
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1">
+          <Routes>
+            {/* Public Route */}
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* 404 Catch-All */}
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </main>
-    </div>
+            {/* Protected Routes */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/search"
+              element={
+                <ProtectedRoute>
+                  <SearchPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lobby/:id"
+              element={
+                <ProtectedRoute>
+                  <LobbyPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* 404 Catch-All */}
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </main>
+      </div>
+    </>
   );
 }
 
