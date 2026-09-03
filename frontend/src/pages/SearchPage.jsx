@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Navigation, SlidersHorizontal, Utensils, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Search, Navigation, SlidersHorizontal, Utensils, X, CheckCircle2, Share2 } from 'lucide-react';
 import { restaurantApi } from '../api/restaurantApi';
 import { RestaurantCard } from '../components/restaurants/RestaurantCard';
 import { Button } from '../components/common/Button';
@@ -31,15 +32,26 @@ const CUISINES = [
 ];
 
 export function SearchPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
   const { location, isLocating, locationError, requestLocation, clearLocation } = useGeolocation();
 
-  const [query, setQuery] = useState('');
-  const [cuisine, setCuisine] = useState('All Cuisines');
-  const [radius, setRadius] = useState(5); // miles
+  // Read initial filter values from URL query parameters
+  const initialQuery = searchParams.get('q') || '';
+  const initialCuisine = searchParams.get('cuisine') || 'All Cuisines';
+  const initialRadius = Number(searchParams.get('radius')) || 5;
+
+  // Form input state (only applied on Filter button click)
+  const [query, setQuery] = useState(initialQuery);
+  const [cuisine, setCuisine] = useState(initialCuisine);
+  const [radius, setRadius] = useState(initialRadius);
+
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+
+  // Track the last searched URL search string to prevent duplicate searches
+  const lastSearchedParamsRef = useRef(null);
 
   useEffect(() => {
     if (locationError) {
@@ -47,64 +59,85 @@ export function SearchPage() {
     }
   }, [locationError, showToast]);
 
-  const executeSearch = async (q = query, c = cuisine, r = radius) => {
-    setIsLoading(true);
-    setHasSearched(true);
+  const executeSearch = useCallback(
+    async (q, c, r, coords) => {
+      setIsLoading(true);
+      setHasSearched(true);
 
-    const queryParts = [];
-    if (c && c !== 'All Cuisines') queryParts.push(c);
-    if (q.trim()) queryParts.push(q.trim());
+      const queryParts = [];
+      if (c && c !== 'All Cuisines') queryParts.push(c);
+      if (q && q.trim()) queryParts.push(q.trim());
 
-    const finalQuery = queryParts.join(' ') || 'restaurant';
+      const finalQuery = queryParts.join(' ') || 'restaurant';
 
-    try {
-      let data = [];
-      if (location) {
-        data = await restaurantApi.searchNearby({
-          latitude: location.latitude,
-          longitude: location.longitude,
-          radius: String(r),
-          keyword: finalQuery,
-        });
-      } else {
-        data = await restaurantApi.searchText(finalQuery);
+      try {
+        let data = [];
+        const effectiveLocation = coords || location;
+        if (effectiveLocation) {
+          data = await restaurantApi.searchNearby({
+            latitude: effectiveLocation.latitude,
+            longitude: effectiveLocation.longitude,
+            radius: String(r || 5),
+            keyword: finalQuery,
+          });
+        } else {
+          data = await restaurantApi.searchText(finalQuery);
+        }
+        setResults(data);
+      } catch (err) {
+        console.error('Search error:', err);
+        showToast(err.message || 'Search failed', 'error');
+        setResults([]);
+      } finally {
+        setIsLoading(false);
       }
-      setResults(data);
-      showToast(`Found ${data.length} restaurants`, 'info');
-    } catch (err) {
-      console.error('Search error:', err);
-      showToast(err.message || 'Search failed', 'error');
-      setResults([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    },
+    [location, showToast]
+  );
 
-  const handleSearch = (e) => {
-    e?.preventDefault();
-    executeSearch(query, cuisine, radius);
-  };
+  // URL synchronization: runs on initial mount & when URL params change (back/forward navigation)
+  useEffect(() => {
+    const currentParamsString = searchParams.toString();
+    if (lastSearchedParamsRef.current === currentParamsString) return;
+    lastSearchedParamsRef.current = currentParamsString;
 
-  const handleCuisineSelect = (c) => {
+    const q = searchParams.get('q') || '';
+    const c = searchParams.get('cuisine') || 'All Cuisines';
+    const r = Number(searchParams.get('radius')) || 5;
+
+    setQuery(q);
     setCuisine(c);
-    executeSearch(query, c, radius);
-  };
+    setRadius(r);
 
-  const handleRadiusChange = (newRadius) => {
-    setRadius(newRadius);
-  };
-
-  const handleRadiusCommit = (finalRadius) => {
-    const r = typeof finalRadius === 'number' ? finalRadius : radius;
-    if (location) {
-      executeSearch(query, cuisine, r);
+    let coords = null;
+    const lat = searchParams.get('lat');
+    const lng = searchParams.get('lng');
+    if (lat && lng && !isNaN(Number(lat)) && !isNaN(Number(lng))) {
+      coords = { latitude: Number(lat), longitude: Number(lng) };
     }
-  };
 
-  const handlePresetSelect = (newRadius) => {
-    setRadius(newRadius);
+    executeSearch(q, c, r, coords);
+  }, [searchParams, executeSearch]);
+
+  // Trigger search ONLY on clicking Filter / pressing Enter
+  const handleApplyFilters = (e) => {
+    e?.preventDefault();
+
+    const nextParams = {};
+    if (query.trim()) nextParams.q = query.trim();
+    if (cuisine && cuisine !== 'All Cuisines') nextParams.cuisine = cuisine;
+    if (radius && radius !== 5) nextParams.radius = String(radius);
     if (location) {
-      executeSearch(query, cuisine, newRadius);
+      nextParams.lat = location.latitude.toFixed(6);
+      nextParams.lng = location.longitude.toFixed(6);
+    }
+
+    const nextParamsString = new URLSearchParams(nextParams).toString();
+
+    if (lastSearchedParamsRef.current === nextParamsString) {
+      executeSearch(query, cuisine, radius, location);
+    } else {
+      setSearchParams(nextParams);
     }
   };
 
@@ -112,14 +145,18 @@ export function SearchPage() {
     setQuery('');
     setCuisine('All Cuisines');
     setRadius(5);
-    executeSearch('', 'All Cuisines', 5);
+    clearLocation();
+
+    if (lastSearchedParamsRef.current === '') {
+      executeSearch('', 'All Cuisines', 5, null);
+    } else {
+      setSearchParams({});
+    }
   };
 
-  // Perform initial search on mount
-  useEffect(() => {
-    executeSearch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const handlePresetSelect = (presetRadius) => {
+    setRadius(presetRadius);
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
@@ -135,7 +172,7 @@ export function SearchPage() {
         </div>
 
         {/* Search Controls Form */}
-        <form onSubmit={handleSearch} className="space-y-4">
+        <form onSubmit={handleApplyFilters} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             {/* Keyword search */}
             <div className="sm:col-span-6 relative">
@@ -154,7 +191,7 @@ export function SearchPage() {
             <div className="sm:col-span-3">
               <select
                 value={cuisine}
-                onChange={(e) => handleCuisineSelect(e.target.value)}
+                onChange={(e) => setCuisine(e.target.value)}
                 aria-label="Filter by cuisine"
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-white text-slate-700 font-medium"
               >
@@ -166,46 +203,29 @@ export function SearchPage() {
               </select>
             </div>
 
-            {/* Search Submit */}
-            <div className="sm:col-span-3">
+            {/* Action Buttons: Filter & Reset */}
+            <div className="sm:col-span-3 flex gap-2">
               <Button
                 type="submit"
                 variant="primary"
                 size="md"
                 isLoading={isLoading}
-                icon={Search}
-                className="w-full shadow-sm hover:shadow-glow-tomato py-2.5"
+                icon={SlidersHorizontal}
+                className="flex-1 shadow-sm hover:shadow-glow-tomato py-2.5"
               >
-                Search
+                Filter
               </Button>
-            </div>
-          </div>
-
-          {/* Quick Cuisine Carousel Strip */}
-          <div className="pt-1">
-            <div
-              role="group"
-              aria-label="Cuisine quick filters"
-              className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1 scroll-smooth"
-            >
-              {CUISINES.map((c) => {
-                const isSelected = cuisine === c;
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => handleCuisineSelect(c)}
-                    aria-pressed={isSelected}
-                    className={`shrink-0 px-3.5 py-2 rounded-full text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-tomato/30 active:scale-95 ${
-                      isSelected
-                        ? 'bg-slate-900 text-white shadow-xs'
-                        : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                );
-              })}
+              <Button
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={handleResetFilters}
+                className="px-3 text-slate-600 hover:text-slate-900"
+                title="Reset all filters"
+                aria-label="Reset all filters"
+              >
+                Reset
+              </Button>
             </div>
           </div>
 
@@ -241,55 +261,49 @@ export function SearchPage() {
               )}
             </div>
 
-            {location && (
-              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                <div className="flex items-center gap-1.5">
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Radius: <strong className="text-slate-900 font-semibold">{radius} mi</strong></span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="range"
-                    min="1"
-                    max="25"
-                    value={radius}
-                    onChange={(e) => handleRadiusChange(Number(e.target.value))}
-                    onPointerUp={(e) => handleRadiusCommit(Number(e.target.value))}
-                    onKeyUp={(e) => {
-                      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
-                        handleRadiusCommit(Number(e.target.value));
-                      }
-                    }}
-                    aria-label="Search radius in miles"
-                    aria-valuenow={radius}
-                    aria-valuemin="1"
-                    aria-valuemax="25"
-                    className="w-24 sm:w-28 accent-tomato cursor-pointer"
-                  />
-                  {/* Quick Distance Presets */}
-                  <div className="flex items-center gap-1">
-                    {[
-                      { label: '2 mi', val: 2 },
-                      { label: '5 mi', val: 5 },
-                      { label: '15 mi', val: 15 },
-                    ].map((p) => (
-                      <button
-                        key={p.val}
-                        type="button"
-                        onClick={() => handlePresetSelect(p.val)}
-                        className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
-                          radius === p.val
-                            ? 'bg-tomato-light text-tomato border border-tomato/30 font-semibold'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+              <div className="flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                <span>
+                  Radius: <strong className="text-slate-900 font-semibold">{radius} mi</strong>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min="1"
+                  max="25"
+                  value={radius}
+                  onChange={(e) => setRadius(Number(e.target.value))}
+                  aria-label="Search radius in miles"
+                  aria-valuenow={radius}
+                  aria-valuemin="1"
+                  aria-valuemax="25"
+                  className="w-24 sm:w-28 accent-tomato cursor-pointer"
+                />
+                {/* Quick Distance Presets (only sets radius, search happens on Filter click) */}
+                <div className="flex items-center gap-1">
+                  {[
+                    { label: '2 mi', val: 2 },
+                    { label: '5 mi', val: 5 },
+                    { label: '15 mi', val: 15 },
+                  ].map((p) => (
+                    <button
+                      key={p.val}
+                      type="button"
+                      onClick={() => handlePresetSelect(p.val)}
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
+                        radius === p.val
+                          ? 'bg-tomato-light text-tomato border border-tomato/30 font-semibold'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </form>
       </div>
@@ -300,6 +314,22 @@ export function SearchPage() {
           <Utensils className="w-5 h-5 text-tomato" />
           <span>{hasSearched ? `Results (${results.length})` : 'Popular Restaurants'}</span>
         </h2>
+
+        {/* Shareable Link Button */}
+        {hasSearched && (
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(window.location.href);
+              showToast('Link copied! You can share these filters with anyone.', 'success');
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-xs"
+            title="Copy URL with current filters"
+          >
+            <Share2 className="w-3.5 h-3.5 text-slate-500" />
+            <span>Share Filters</span>
+          </button>
+        )}
       </div>
 
       {/* Results Grid */}
@@ -331,7 +361,18 @@ export function SearchPage() {
                 type="button"
                 variant="primary"
                 size="sm"
-                onClick={() => handlePresetSelect(15)}
+                onClick={() => {
+                  setRadius(15);
+                  const nextParams = {};
+                  if (query.trim()) nextParams.q = query.trim();
+                  if (cuisine && cuisine !== 'All Cuisines') nextParams.cuisine = cuisine;
+                  nextParams.radius = '15';
+                  if (location) {
+                    nextParams.lat = location.latitude.toFixed(6);
+                    nextParams.lng = location.longitude.toFixed(6);
+                  }
+                  setSearchParams(nextParams);
+                }}
               >
                 Expand to 15 miles
               </Button>
