@@ -39,8 +39,9 @@ export function App() {
         <Navbar />
         <main className="flex-1">
           <Routes>
-            {/* Public Route */}
+            {/* Public Routes */}
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/search" element={<SearchPage />} />
 
             {/* Protected Routes */}
             <Route
@@ -48,14 +49,6 @@ export function App() {
               element={
                 <ProtectedRoute>
                   <DashboardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/search"
-              element={
-                <ProtectedRoute>
-                  <SearchPage />
                 </ProtectedRoute>
               }
             />

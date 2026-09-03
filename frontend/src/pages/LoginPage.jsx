@@ -16,11 +16,17 @@ export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  const getRedirectTarget = () => {
+    const from = location.state?.from;
+    if (!from) return '/';
+    if (typeof from === 'string') return from;
+    return `${from.pathname || '/'}${from.search || ''}`;
+  };
+
   // If already signed in, redirect to dashboard or intended route
   useEffect(() => {
     if (isAuthenticated) {
-      const from = location.state?.from?.pathname || '/';
-      navigate(from, { replace: true });
+      navigate(getRedirectTarget(), { replace: true });
     }
   }, [isAuthenticated, navigate, location]);
 
@@ -30,7 +36,7 @@ export function LoginPage() {
     try {
       await login(credentials);
       showToast('Welcome back!', 'success');
-      navigate('/');
+      navigate(getRedirectTarget(), { replace: true });
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Star, MapPin, Bookmark, BookmarkCheck, Utensils, Info } from 'lucide-react';
 import { getImageUrl } from '../../api/client';
 import { StatusBadge } from '../common/StatusBadge';
@@ -15,9 +16,11 @@ export function RestaurantCard({
   onSaveSuccess,
   className = '',
 }) {
-  const { savedPlaceIds, addSavedPlaceId } = useAuth();
+  const { savedPlaceIds, addSavedPlaceId, isAuthenticated } = useAuth();
   const { openDetailsModal } = useModal();
   const { showToast } = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [imageError, setImageError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -25,6 +28,12 @@ export function RestaurantCard({
 
   const handleSave = async () => {
     if (isSaved || isSaving) return;
+    if (!isAuthenticated) {
+      showToast('Please sign in to save restaurants', 'info');
+      navigate('/login', { state: { from: location } });
+      return;
+    }
+
     setIsSaving(true);
     addSavedPlaceId(restaurant.api_place_id);
 
@@ -51,6 +60,15 @@ export function RestaurantCard({
     }
   };
 
+  const handleDetailsClick = () => {
+    if (!isAuthenticated) {
+      showToast('Please sign in to view detailed info and reviews', 'info');
+      navigate('/login', { state: { from: location } });
+      return;
+    }
+    openDetailsModal(restaurant.api_place_id);
+  };
+
   const photoUrl = !imageError && restaurant.photo_url ? getImageUrl(restaurant.photo_url) : null;
 
   return (
@@ -58,10 +76,10 @@ export function RestaurantCard({
       {/* Image container */}
       <div
         className="relative h-44 w-full bg-slate-100 overflow-hidden cursor-pointer group"
-        onClick={() => openDetailsModal(restaurant.api_place_id)}
+        onClick={handleDetailsClick}
         role="button"
         tabIndex={0}
-        onKeyDown={(e) => e.key === 'Enter' && openDetailsModal(restaurant.api_place_id)}
+        onKeyDown={(e) => e.key === 'Enter' && handleDetailsClick()}
         aria-label={`View details for ${restaurant.name}`}
       >
         {photoUrl ? (
@@ -103,7 +121,7 @@ export function RestaurantCard({
         <div>
           <div className="flex items-start justify-between gap-2">
             <h4
-              onClick={() => openDetailsModal(restaurant.api_place_id)}
+              onClick={handleDetailsClick}
               className="font-heading font-semibold text-slate-900 text-base leading-snug line-clamp-1 cursor-pointer hover:text-tomato transition-colors"
             >
               {restaurant.name}
@@ -146,7 +164,7 @@ export function RestaurantCard({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => openDetailsModal(restaurant.api_place_id)}
+                onClick={handleDetailsClick}
                 icon={Info}
                 className="flex-1 min-h-[38px]"
               >

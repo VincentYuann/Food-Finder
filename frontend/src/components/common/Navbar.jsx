@@ -43,28 +43,29 @@ export function Navbar() {
           </Link>
 
           {/* Desktop Navigation Links */}
-          {isAuthenticated && (
-            <nav className="hidden md:flex items-center gap-1">
-              {navLinks.map((link) => {
-                const Icon = link.icon;
-                const isActive = location.pathname === link.path;
-                return (
-                  <Link
-                    key={link.path}
-                    to={link.path}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-heading font-medium transition-all ${
-                      isActive
-                        ? 'bg-tomato-light text-tomato font-semibold shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
-                    }`}
-                  >
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-tomato' : 'text-slate-400'}`} />
-                    {link.name}
-                  </Link>
-                );
-              })}
-            </nav>
-          )}
+          <nav className="hidden md:flex items-center gap-1">
+            {(isAuthenticated
+              ? navLinks
+              : [{ name: 'Find Food', path: '/search', icon: Search }]
+            ).map((link) => {
+              const Icon = link.icon;
+              const isActive = location.pathname === link.path;
+              return (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-sm font-heading font-medium transition-all ${
+                    isActive
+                      ? 'bg-tomato-light text-tomato font-semibold shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-tomato' : 'text-slate-400'}`} />
+                  {link.name}
+                </Link>
+              );
+            })}
+          </nav>
 
           {/* User Profile / Auth Actions */}
           <div className="hidden md:flex items-center gap-3">
@@ -155,13 +156,23 @@ export function Navbar() {
               </button>
             </>
           ) : (
-            <Link
-              to="/login"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="block w-full text-center py-2.5 px-4 rounded-xl bg-brand-500 text-white font-medium shadow-sm"
-            >
-              Sign In / Register
-            </Link>
+            <div className="space-y-2">
+              <Link
+                to="/search"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-100"
+              >
+                <Search className="w-5 h-5 text-slate-400" />
+                Find Food
+              </Link>
+              <Link
+                to="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block w-full text-center py-2.5 px-4 rounded-xl bg-tomato hover:bg-tomato-hover text-white font-medium shadow-sm transition-colors"
+              >
+                Sign In / Register
+              </Link>
+            </div>
           )}
         </div>
       )}
