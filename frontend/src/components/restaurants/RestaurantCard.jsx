@@ -72,7 +72,7 @@ export function RestaurantCard({
   const photoUrl = !imageError && restaurant.photo_url ? getImageUrl(restaurant.photo_url) : null;
 
   return (
-    <div className={`bg-white rounded-2xl border border-slate-200/80 shadow-ambient hover:shadow-card hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col ${className}`}>
+    <div className={`bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 overflow-hidden flex flex-col ${className}`}>
       {/* Image container */}
       <div
         className="relative h-44 w-full bg-slate-100 overflow-hidden cursor-pointer group"
@@ -91,7 +91,7 @@ export function RestaurantCard({
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-100/80">
+          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-100">
             <Utensils className="w-8 h-8 stroke-1 text-slate-300 mb-1" />
             <span className="text-xs font-medium text-slate-400">No photo available</span>
           </div>
@@ -99,18 +99,18 @@ export function RestaurantCard({
 
         {/* Rating pill on image */}
         {restaurant.rating && (
-          <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-lg bg-slate-900/80 backdrop-blur-md text-white text-xs font-bold flex items-center gap-1 shadow-sm">
+          <div className="absolute bottom-3 left-3 px-2.5 py-1 rounded-lg bg-slate-950/85 backdrop-blur-md text-white text-xs font-bold flex items-center gap-1 shadow-sm">
             <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
             <span>{parseFloat(restaurant.rating).toFixed(1)}</span>
             {restaurant.user_rating_count && (
-              <span className="text-slate-400 font-normal">({restaurant.user_rating_count})</span>
+              <span className="text-slate-300 font-normal">({restaurant.user_rating_count})</span>
             )}
           </div>
         )}
 
         {/* Price Tag on image */}
         {restaurant.price_level && (
-          <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-slate-900/75 backdrop-blur-md text-white text-xs font-semibold">
+          <div className="absolute top-3 right-3 px-2 py-0.5 rounded-md bg-slate-950/85 backdrop-blur-md text-white text-xs font-semibold">
             {'$'.repeat(restaurant.price_level)}
           </div>
         )}
@@ -122,7 +122,7 @@ export function RestaurantCard({
           <div className="flex items-start justify-between gap-2">
             <h4
               onClick={handleDetailsClick}
-              className="font-heading font-semibold text-slate-900 text-base leading-snug line-clamp-1 cursor-pointer hover:text-tomato transition-colors"
+              className="font-heading font-bold text-slate-900 text-base leading-snug line-clamp-1 cursor-pointer hover:text-tomato transition-colors"
             >
               {restaurant.name}
             </h4>
@@ -130,7 +130,7 @@ export function RestaurantCard({
 
           <div className="flex flex-wrap items-center gap-2 mt-2">
             {restaurant.primary_type && (
-              <span className="text-xs font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md capitalize">
+              <span className="text-xs font-semibold text-slate-700 bg-slate-100 border border-slate-200/70 px-2 py-0.5 rounded-md capitalize">
                 {restaurant.primary_type.replace(/_/g, ' ')}
               </span>
             )}
@@ -139,11 +139,11 @@ export function RestaurantCard({
             )}
           </div>
 
-          <div className="mt-2 text-xs text-slate-500 flex items-start gap-1 line-clamp-2">
+          <div className="mt-2 text-xs text-slate-600 flex items-start gap-1 line-clamp-2 font-medium">
             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
             <span>
               {restaurant.distanceMiles !== undefined && restaurant.distanceMiles !== null && (
-                <strong className="text-tomato font-semibold mr-1">
+                <strong className="text-tomato font-bold mr-1">
                   {restaurant.distanceMiles} mi away •
                 </strong>
               )}

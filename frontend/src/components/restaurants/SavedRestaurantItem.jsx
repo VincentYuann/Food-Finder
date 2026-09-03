@@ -22,10 +22,10 @@ export function SavedRestaurantItem({ restaurant, onUnsave }) {
   const photoUrl = !imageError && restaurant.photo_url ? getImageUrl(restaurant.photo_url) : null;
 
   return (
-    <div className={`p-3.5 rounded-xl border border-slate-200/80 bg-white hover:border-slate-300 hover:shadow-card transition-all duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isRemoving ? 'opacity-40 pointer-events-none' : ''}`}>
+    <div className={`p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm transition-all duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${isRemoving ? 'opacity-40 pointer-events-none' : ''}`}>
       <div className="flex items-center gap-3 flex-1 min-w-0">
         {/* Photo thumbnail */}
-        <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200/60">
+        <div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200/80">
           {photoUrl ? (
             <img
               src={photoUrl}
@@ -42,18 +42,18 @@ export function SavedRestaurantItem({ restaurant, onUnsave }) {
 
         {/* Text info */}
         <div className="min-w-0 flex-1">
-          <h4 className="font-heading font-semibold text-slate-900 text-sm truncate">{restaurant.name}</h4>
-          <p className="text-xs text-slate-500 truncate mt-0.5">{restaurant.address || 'No address'}</p>
+          <h4 className="font-heading font-bold text-slate-900 text-sm truncate">{restaurant.name}</h4>
+          <p className="text-xs text-slate-600 truncate mt-0.5 font-medium">{restaurant.address || 'No address'}</p>
           <div className="flex items-center gap-2 mt-1">
             {restaurant.rating && (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
-                <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-800">
+                <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
                 {parseFloat(restaurant.rating).toFixed(1)}
               </span>
             )}
             {restaurant.primary_type && (
-              <span className="text-[11px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded capitalize">
-                {restaurant.primary_type}
+              <span className="text-[11px] font-semibold text-slate-700 bg-slate-100 border border-slate-200/80 px-2 py-0.5 rounded-md capitalize">
+                {restaurant.primary_type.replace(/_/g, ' ')}
               </span>
             )}
           </div>

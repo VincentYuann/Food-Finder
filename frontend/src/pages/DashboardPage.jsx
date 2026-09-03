@@ -194,12 +194,12 @@ export function DashboardPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
       {/* Welcome Banner */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-ambient flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+      <div className="bg-gradient-to-br from-white via-white to-tomato-light/35 rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-6">
         <div>
           <h1 className="text-2xl sm:text-3xl font-heading font-bold text-slate-900 tracking-tight">
             Welcome back, {currentUser?.username}!
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-600 mt-1 font-medium">
             Create a voting group, browse saved spots, or jump back into an active lobby.
           </p>
         </div>
@@ -210,7 +210,7 @@ export function DashboardPage() {
             size="lg"
             onClick={() => navigate('/search')}
             icon={Utensils}
-            className="shadow-sm hover:shadow-glow-tomato"
+            className="shadow-sm hover:shadow-glow-tomato font-semibold"
           >
             Find Restaurants
           </Button>
@@ -220,13 +220,13 @@ export function DashboardPage() {
       {/* Action Cards: Create & Join */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Create Lobby Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-ambient flex flex-col justify-between">
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-7 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
           <div>
             <div className="w-10 h-10 rounded-xl bg-tomato-light text-tomato flex items-center justify-center mb-3">
               <PlusCircle className="w-5 h-5" />
             </div>
-            <h3 className="text-lg font-heading font-semibold text-slate-900">Start a Group Lobby</h3>
-            <p className="text-xs text-slate-500 mt-1">
+            <h3 className="text-lg font-heading font-bold text-slate-900">Start a Group Lobby</h3>
+            <p className="text-xs text-slate-600 mt-1 font-medium">
               Create a real-time room to invite friends, shortlist dishes, and vote on where to eat.
             </p>
           </div>
@@ -238,22 +238,22 @@ export function DashboardPage() {
               value={createName}
               onChange={(e) => setCreateName(e.target.value)}
               placeholder="e.g. Friday Night Dinner"
-              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-white"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-slate-50/60 focus:bg-white text-slate-900 placeholder:text-slate-400 font-medium transition-colors"
             />
-            <Button type="submit" variant="primary" size="md" isLoading={isCreating}>
+            <Button type="submit" variant="primary" size="md" isLoading={isCreating} className="font-semibold shadow-xs">
               Create
             </Button>
           </form>
         </div>
 
         {/* Join Lobby Card */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-ambient flex flex-col justify-between">
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-7 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors">
           <div>
             <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center mb-3">
               <LogIn className="w-5 h-5" />
             </div>
-            <h3 className="text-lg font-heading font-semibold text-slate-900">Join with Code</h3>
-            <p className="text-xs text-slate-500 mt-1">
+            <h3 className="text-lg font-heading font-bold text-slate-900">Join with Code</h3>
+            <p className="text-xs text-slate-600 mt-1 font-medium">
               Have an invite code from a friend? Enter it below to jump directly into the lobby.
             </p>
           </div>
@@ -265,9 +265,9 @@ export function DashboardPage() {
               value={joinCode}
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
               placeholder="e.g. DINNER123"
-              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-mono uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-white"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 text-sm font-mono uppercase tracking-wider focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-slate-50/60 focus:bg-white text-slate-900 placeholder:text-slate-400 font-bold transition-colors"
             />
-            <Button type="submit" variant="outline" size="md" isLoading={isJoining}>
+            <Button type="submit" variant="outline" size="md" isLoading={isJoining} className="font-semibold shadow-xs">
               Join
             </Button>
           </form>
@@ -279,24 +279,24 @@ export function DashboardPage() {
         {/* Left 2 Cols: My Lobbies */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-heading font-semibold text-slate-900 flex items-center gap-2">
+            <h2 className="text-xl font-heading font-bold text-slate-900 flex items-center gap-2">
               <Users className="w-5 h-5 text-tomato" />
               <span>My Group Lobbies</span>
             </h2>
-            <span className="text-xs font-semibold text-slate-400">
+            <span className="text-xs font-semibold text-slate-500">
               {lobbies.length} {lobbies.length === 1 ? 'lobby' : 'lobbies'}
             </span>
           </div>
 
           {isLoadingLobbies ? (
-            <div className="bg-white rounded-2xl border border-slate-200 p-12 flex justify-center text-tomato">
+            <div className="bg-white rounded-3xl border border-slate-200 p-12 flex justify-center text-tomato">
               <LoadingSpinner size="lg" />
             </div>
           ) : lobbies.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center">
+            <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-10 text-center">
               <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-              <p className="font-heading font-semibold text-slate-700 text-sm">No lobbies joined yet</p>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="font-heading font-bold text-slate-700 text-sm">No lobbies joined yet</p>
+              <p className="text-xs text-slate-500 mt-1">
                 Create a lobby or join an existing one above to get started.
               </p>
             </div>
@@ -309,17 +309,17 @@ export function DashboardPage() {
                 return (
                   <div
                     key={lobby.id}
-                    className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-ambient hover:shadow-card hover:-translate-y-0.5 transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 hover:-translate-y-0.5 transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                   >
                     <div>
                       <div className="flex items-center gap-2.5">
-                        <h4 className="font-heading font-semibold text-slate-900 text-base leading-snug">
+                        <h4 className="font-heading font-bold text-slate-900 text-base leading-snug">
                           {lobby.name || 'Untitled Lobby'}
                         </h4>
                         <StatusBadge status={lobby.status} />
                       </div>
 
-                      <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-500">
+                      <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-600 font-medium">
                         {lobby.invite_code && (
                           <span>
                             Code: <strong className="text-tomato font-mono font-bold tracking-wider">{lobby.invite_code}</strong>

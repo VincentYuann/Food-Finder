@@ -197,12 +197,12 @@ export function SearchPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
       {/* Search Header Banner */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-6 sm:p-8 shadow-ambient space-y-6">
+      <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
         <div className="max-w-3xl">
           <h1 className="text-2xl sm:text-3xl font-heading font-bold text-slate-900 tracking-tight">
             Discover Great Places to Eat
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-600 mt-1 font-medium">
             Search top-rated spots by name, cuisine, or your live GPS location.
           </p>
         </div>
@@ -219,7 +219,7 @@ export function SearchPage() {
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search restaurant name, food, or keywords..."
                 aria-label="Search restaurant name, food, or keywords"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-white"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-slate-50/60 focus:bg-white text-slate-900 placeholder:text-slate-400 transition-colors font-medium"
               />
             </div>
 
@@ -229,7 +229,7 @@ export function SearchPage() {
                 value={cuisine}
                 onChange={(e) => setCuisine(e.target.value)}
                 aria-label="Filter by cuisine"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-white text-slate-700 font-medium"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-tomato/20 focus:border-tomato bg-slate-50/60 focus:bg-white text-slate-800 font-semibold transition-colors"
               >
                 {CUISINES.map((c) => (
                   <option key={c} value={c}>
