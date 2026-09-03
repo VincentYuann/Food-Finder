@@ -15,10 +15,45 @@ export function useGeolocation() {
     setLocationError(null);
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        let areaName = null;
+
+        try {
+          // Attempt lightweight reverse geocode to give the user area visibility
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 3500);
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+            {
+              headers: { Accept: 'application/json' },
+              signal: controller.signal,
+            }
+          );
+          clearTimeout(timeoutId);
+          if (res.ok) {
+            const data = await res.json();
+            const addr = data.address || {};
+            const sub = addr.neighbourhood || addr.suburb || addr.borough || addr.district;
+            const city = addr.city || addr.town || addr.village || addr.county;
+            const state = addr.state;
+            if (sub && city) {
+              areaName = `${sub}, ${city}`;
+            } else if (city && state) {
+              areaName = `${city}, ${state}`;
+            } else if (data.name) {
+              areaName = data.name;
+            }
+          }
+        } catch {
+          // Reverse-geocoding is purely an enhancement; silent fallback to coordinates
+        }
+
         setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
+          latitude,
+          longitude,
+          accuracy: Math.round(accuracy),
+          areaName,
         });
         setIsLocating(false);
       },

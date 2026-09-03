@@ -31,6 +31,21 @@ const CUISINES = [
   'Vegetarian',
 ];
 
+function calculateDistanceMiles(lat1, lon1, lat2, lon2) {
+  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
+  const R = 3958.8; // miles
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
+
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
@@ -88,6 +103,19 @@ export function SearchPage() {
             radius: String(r || 5),
             keyword: finalQuery,
           });
+
+          // Calculate distance in miles from search coordinates & sort closest first
+          data = data.map((place) => ({
+            ...place,
+            distanceMiles: calculateDistanceMiles(
+              effectiveLocation.latitude,
+              effectiveLocation.longitude,
+              place.latitude,
+              place.longitude
+            ),
+          }));
+
+          data.sort((a, b) => (a.distanceMiles ?? 999) - (b.distanceMiles ?? 999));
         } else {
           data = await restaurantApi.searchText(finalQuery);
         }
@@ -242,12 +270,14 @@ export function SearchPage() {
             <div className="flex items-center gap-3">
               {location ? (
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>GPS Location Acquired</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span className="truncate max-w-[200px] sm:max-w-[280px]">
+                    {location.areaName ? `Near ${location.areaName}` : 'Location Acquired'}
+                  </span>
                   <button
                     type="button"
                     onClick={clearLocation}
-                    className="ml-1 text-emerald-600 hover:text-emerald-900"
+                    className="ml-1 text-emerald-600 hover:text-emerald-900 shrink-0"
                     title="Clear location"
                     aria-label="Clear GPS location"
                   >

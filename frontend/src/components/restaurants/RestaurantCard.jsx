@@ -139,10 +139,17 @@ export function RestaurantCard({
             )}
           </div>
 
-          <p className="mt-2 text-xs text-slate-500 flex items-start gap-1 line-clamp-2">
+          <div className="mt-2 text-xs text-slate-500 flex items-start gap-1 line-clamp-2">
             <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-            <span>{restaurant.address || 'Address not available'}</span>
-          </p>
+            <span>
+              {restaurant.distanceMiles !== undefined && restaurant.distanceMiles !== null && (
+                <strong className="text-tomato font-semibold mr-1">
+                  {restaurant.distanceMiles} mi away •
+                </strong>
+              )}
+              {restaurant.address || 'Address not available'}
+            </span>
+          </div>
         </div>
 
         {/* Action buttons */}

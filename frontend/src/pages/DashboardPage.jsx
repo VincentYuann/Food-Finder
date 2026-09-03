@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -42,13 +42,30 @@ export function DashboardPage() {
   const [savedRestaurants, setSavedRestaurants] = useState([]);
   const [isLoadingSaved, setIsLoadingSaved] = useState(true);
 
-  // Check URL params for invite code auto-fill
+  const autoJoinAttemptedRef = useRef(false);
+
+  // Check URL params for invite code and auto-join
   useEffect(() => {
     const code = searchParams.get('join') || searchParams.get('code');
-    if (code) {
-      setJoinCode(code.trim().toUpperCase());
+    if (code && !autoJoinAttemptedRef.current) {
+      const cleanCode = code.trim().toUpperCase();
+      setJoinCode(cleanCode);
+      autoJoinAttemptedRef.current = true;
+
+      (async () => {
+        setIsJoining(true);
+        try {
+          const lobby = await lobbyApi.joinLobby(cleanCode);
+          showToast(`Successfully joined "${lobby.name || 'lobby'}"!`, 'success');
+          navigate(`/lobby/${lobby.id}`, { replace: true });
+        } catch (err) {
+          showToast(err.message || 'Could not auto-join lobby. Please check the code.', 'error');
+        } finally {
+          setIsJoining(false);
+        }
+      })();
     }
-  }, [searchParams]);
+  }, [searchParams, navigate, showToast]);
 
   const loadLobbies = useCallback(async () => {
     setIsLoadingLobbies(true);
