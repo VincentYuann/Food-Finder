@@ -49,10 +49,12 @@ export function LobbyPage() {
         ]);
 
       setLobby(lobbyData);
-      setMembers(membersData);
-      setOptions(optionsData);
-      setVotes(votesData);
-      setMessages(messagesData);
+      setMembers(Array.isArray(membersData) ? membersData : []);
+      setOptions(Array.isArray(optionsData) ? optionsData : []);
+      setVotes(Array.isArray(votesData) ? votesData : []);
+      if (Array.isArray(messagesData)) {
+        setMessages(messagesData);
+      }
 
       // Check phase transition
       if (prevStatusRef.current && lobbyData.status !== prevStatusRef.current) {

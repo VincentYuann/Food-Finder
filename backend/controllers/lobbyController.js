@@ -589,16 +589,12 @@ export const castVote = async (req, res) => {
 
 export const getLobbyMessages = async (req, res) => {
     try {
-        const cacheKey = `lobby_messages_${req.lobbyId}`;
-        if (myCache.has(cacheKey)) return res.status(200).json(myCache.get(cacheKey));
-
         const messages = await prisma.message.findMany({
             where: { lobby_id: req.lobbyId },
             orderBy: { sent_at: 'asc' },
             include: { user: { select: publicUserSelect } }
         });
 
-        myCache.set(cacheKey, messages);
         res.status(200).json(messages);
     } catch (error) {
         console.error('Error fetching lobby messages:', error);

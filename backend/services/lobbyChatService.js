@@ -1,6 +1,7 @@
 import prisma from '../config/dbConfig.js';
 import publicUserSelect from '../utils/publicUserSelect.js';
 import { emitLobbyMessage } from '../socket/emitter.js';
+import myCache from '../utils/cache.js';
 
 // Postgres `text` has no limit of its own, so the cap lives here. Without it a
 // single client could push an unbounded blob to every other member of a lobby.
@@ -40,6 +41,7 @@ export const createLobbyMessage = async ({ lobbyId, userId, content, imageUrl })
         include: { user: { select: publicUserSelect } }
     });
 
+    myCache.del(`lobby_messages_${lobbyId}`);
     emitLobbyMessage(lobbyId, message);
 
     return message;
