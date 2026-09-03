@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { useAuth } from './hooks/useAuth';
 import { Navbar } from './components/common/Navbar';
 import { LoginPage } from './pages/LoginPage';
@@ -68,6 +69,7 @@ export function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
+      <SpeedInsights />
     </div>
   );
 }
