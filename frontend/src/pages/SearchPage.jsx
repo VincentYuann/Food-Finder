@@ -68,7 +68,15 @@ export function SearchPage() {
       if (c && c !== 'All Cuisines') queryParts.push(c);
       if (q && q.trim()) queryParts.push(q.trim());
 
-      const finalQuery = queryParts.join(' ') || 'restaurant';
+      let finalQuery = queryParts.join(' ');
+      if (c && c !== 'All Cuisines' && (!q || !q.trim())) {
+        if (!/restaurant|food|cafe|bakery|bbq|pizza|burger|sushi|ramen/i.test(c)) {
+          finalQuery = `${c} restaurant`;
+        }
+      }
+      if (!finalQuery.trim()) {
+        finalQuery = 'restaurant';
+      }
 
       try {
         let data = [];
@@ -261,49 +269,51 @@ export function SearchPage() {
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-              <div className="flex items-center gap-1.5">
-                <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
-                <span>
-                  Radius: <strong className="text-slate-900 font-semibold">{radius} mi</strong>
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="range"
-                  min="1"
-                  max="25"
-                  value={radius}
-                  onChange={(e) => setRadius(Number(e.target.value))}
-                  aria-label="Search radius in miles"
-                  aria-valuenow={radius}
-                  aria-valuemin="1"
-                  aria-valuemax="25"
-                  className="w-24 sm:w-28 accent-tomato cursor-pointer"
-                />
-                {/* Quick Distance Presets (only sets radius, search happens on Filter click) */}
-                <div className="flex items-center gap-1">
-                  {[
-                    { label: '2 mi', val: 2 },
-                    { label: '5 mi', val: 5 },
-                    { label: '15 mi', val: 15 },
-                  ].map((p) => (
-                    <button
-                      key={p.val}
-                      type="button"
-                      onClick={() => handlePresetSelect(p.val)}
-                      className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
-                        radius === p.val
-                          ? 'bg-tomato-light text-tomato border border-tomato/30 font-semibold'
-                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
+            {location && (
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+                <div className="flex items-center gap-1.5">
+                  <SlidersHorizontal className="w-3.5 h-3.5 text-slate-400" />
+                  <span>
+                    Radius: <strong className="text-slate-900 font-semibold">{radius} mi</strong>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="1"
+                    max="25"
+                    value={radius}
+                    onChange={(e) => setRadius(Number(e.target.value))}
+                    aria-label="Search radius in miles"
+                    aria-valuenow={radius}
+                    aria-valuemin="1"
+                    aria-valuemax="25"
+                    className="w-24 sm:w-28 accent-tomato cursor-pointer"
+                  />
+                  {/* Quick Distance Presets (only sets radius, search happens on Filter click) */}
+                  <div className="flex items-center gap-1">
+                    {[
+                      { label: '2 mi', val: 2 },
+                      { label: '5 mi', val: 5 },
+                      { label: '15 mi', val: 15 },
+                    ].map((p) => (
+                      <button
+                        key={p.val}
+                        type="button"
+                        onClick={() => handlePresetSelect(p.val)}
+                        className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${
+                          radius === p.val
+                            ? 'bg-tomato-light text-tomato border border-tomato/30 font-semibold'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </form>
       </div>
