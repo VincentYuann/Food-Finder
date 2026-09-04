@@ -15,13 +15,19 @@ import { createLobbyMessage, MessageValidationError } from '../services/lobbyCha
  */
 const authenticate = (socket, next) => {
     const cookies = parseCookie(socket.handshake.headers.cookie || '');
+    const authToken = socket.handshake.auth?.ticket || socket.handshake.auth?.token;
+    const headerAuth = socket.handshake.headers?.authorization?.startsWith('Bearer ')
+        ? socket.handshake.headers.authorization.split(' ')[1]
+        : null;
 
-    if (!cookies.token) {
+    const token = authToken || headerAuth || cookies.token;
+
+    if (!token) {
         return next(new Error('Access Denied: No Token Provided!'));
     }
 
     try {
-        const decoded = jwt.verify(cookies.token, JWT_SECRET);
+        const decoded = jwt.verify(token, JWT_SECRET);
         const id = Number(decoded.id);
 
         if (Number.isNaN(id)) {

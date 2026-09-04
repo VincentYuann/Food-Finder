@@ -2,7 +2,15 @@ import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/jwtConfig.js';
 
 export const verifyJWT = (req, res, next) => {
-    const token = req.cookies.token;
+    let token = req.cookies?.token;
+
+    // Support Bearer token in Authorization header for cross-domain / third-party cookie blocked environments (Safari ITP, Incognito)
+    if (!token && req.headers?.authorization) {
+        const parts = req.headers.authorization.split(' ');
+        if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
+            token = parts[1];
+        }
+    }
 
     // If user doesn't send a token with them or if the token is modified by malicious user, then deny their access
     if (!token) {

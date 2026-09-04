@@ -13,6 +13,7 @@ router.post('/logout', userController.logoutUser);
 
 // Profile Management
 router.get('/profile', userController.getUserProfile);
+router.get('/profile/socket-ticket', userController.getSocketTicket);
 router.put('/profile', userController.updateUserProfile);
 router.delete('/profile', userController.deleteUser);
 

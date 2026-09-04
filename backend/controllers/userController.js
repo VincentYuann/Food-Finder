@@ -11,7 +11,8 @@ const getCookieOptions = () => {
     return {
         httpOnly: true,
         secure: isProduction,
-        sameSite: isProduction ? 'none' : 'lax',
+        sameSite: 'lax',
+        domain: process.env.COOKIE_DOMAIN || undefined,
         path: '/'
     };
 };
@@ -104,7 +105,7 @@ export const loginUser = async (req, res) => {
             maxAge: 1 * 24 * 60 * 60 * 1000,
         });
 
-        // Send success response (Notice: token is removed from this JSON payload)
+        // Send success response (pure HttpOnly cookie authentication, no token exposed in body)
         res.status(200).json({
             message: 'Login successful',
             user: {
@@ -123,7 +124,24 @@ export const loginUser = async (req, res) => {
 
 export const logoutUser = async (req, res) => {
     res.clearCookie('token', getCookieOptions());
+    res.setHeader('Clear-Site-Data', '"cache", "cookies", "storage"');
     res.status(200).json({ message: 'Logged out successfully.' });
+};
+
+// Generates a short-lived (30s) single-use ticket for WebSocket upgrade,
+// authenticated via the user's HttpOnly session cookie without touching localStorage.
+export const getSocketTicket = async (req, res) => {
+    try {
+        const ticket = jwt.sign(
+            { id: req.user.id, type: 'socket_ticket' },
+            process.env.JWT_SECRET,
+            { expiresIn: '30s' }
+        );
+        res.status(200).json({ ticket });
+    } catch (error) {
+        console.error('Error in getSocketTicket:', error);
+        res.status(500).json({ error: 'Internal server error.' });
+    }
 };
 
 // ==========================================

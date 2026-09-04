@@ -38,5 +38,14 @@ export const authApi = {
     const { data } = await apiClient.get('/api/users/profile/lobbies');
     return data;
   },
+
+  async getSocketTicket() {
+    try {
+      const { data } = await apiClient.get('/api/users/profile/socket-ticket');
+      return data?.ticket || null;
+    } catch {
+      return null;
+    }
+  },
 };
 

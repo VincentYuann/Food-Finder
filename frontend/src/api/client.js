@@ -4,6 +4,12 @@ export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || 
   (window.location.hostname === 'localhost'
     ? 'http://localhost:5000'
+    : '');
+
+export const SOCKET_BASE_URL = 
+  import.meta.env.VITE_SOCKET_BASE_URL || 
+  (window.location.hostname === 'localhost'
+    ? 'http://localhost:5000'
     : 'https://food-finder-backend-270543644290.northamerica-northeast1.run.app');
 
 /**
