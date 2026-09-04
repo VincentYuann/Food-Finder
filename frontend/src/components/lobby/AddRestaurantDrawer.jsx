@@ -7,6 +7,7 @@ import { restaurantApi } from '../../api/restaurantApi';
 import { lobbyApi } from '../../api/lobbyApi';
 import { getImageUrl } from '../../api/client';
 import { useToast } from '../../hooks/useToast';
+import { useSavedRestaurants } from '../../hooks/useRestaurantsQuery';
 
 export function AddRestaurantDrawer({ isOpen, onClose, lobbyId, onRestaurantAdded }) {
   const { showToast } = useToast();
@@ -15,23 +16,13 @@ export function AddRestaurantDrawer({ isOpen, onClose, lobbyId, onRestaurantAdde
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  const [savedRestaurants, setSavedRestaurants] = useState([]);
-  const [isLoadingSaved, setIsLoadingSaved] = useState(false);
+  // TanStack Query for saved restaurants, enabled when drawer is open on saved tab
+  const { data: savedRestaurants = [], isLoading: isLoadingSaved } = useSavedRestaurants({
+    enabled: isOpen && tab === 'saved',
+  });
 
   const [addingPlaceId, setAddingPlaceId] = useState(null);
   const [addedPlaceIds, setAddedPlaceIds] = useState(new Set());
-
-  // Load saved restaurants when tab changes
-  useEffect(() => {
-    if (isOpen && tab === 'saved') {
-      setIsLoadingSaved(true);
-      restaurantApi
-        .getSavedRestaurants()
-        .then((data) => setSavedRestaurants(data))
-        .catch((err) => console.error('Failed to load saved:', err))
-        .finally(() => setIsLoadingSaved(false));
-    }
-  }, [isOpen, tab]);
 
   const handleSearch = async (e) => {
     e?.preventDefault();

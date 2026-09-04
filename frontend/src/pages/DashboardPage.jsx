@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { useModal } from '../hooks/useModal';
-import { authApi } from '../api/authApi';
 import { lobbyApi } from '../api/lobbyApi';
-import { restaurantApi } from '../api/restaurantApi';
+import { queryKeys } from '../api/queryClient';
+import { useSavedRestaurants, useUnsaveRestaurantMutation } from '../hooks/useRestaurantsQuery';
+import { useUserLobbies } from '../hooks/useLobbiesQuery';
 import { Button } from '../components/common/Button';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { SavedRestaurantItem } from '../components/restaurants/SavedRestaurantItem';
@@ -28,6 +30,7 @@ export function DashboardPage() {
   const { confirmModal } = useModal();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
 
   // Create / Join state
   const [createName, setCreateName] = useState('');
@@ -35,12 +38,10 @@ export function DashboardPage() {
   const [joinCode, setJoinCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
 
-  // Lists state
-  const [lobbies, setLobbies] = useState([]);
-  const [isLoadingLobbies, setIsLoadingLobbies] = useState(true);
-
-  const [savedRestaurants, setSavedRestaurants] = useState([]);
-  const [isLoadingSaved, setIsLoadingSaved] = useState(true);
+  // TanStack Queries for Lobbies and Saved Restaurants
+  const { data: lobbies = [], isLoading: isLoadingLobbies } = useUserLobbies();
+  const { data: savedRestaurants = [], isLoading: isLoadingSaved } = useSavedRestaurants();
+  const unsaveMutation = useUnsaveRestaurantMutation();
 
   const autoJoinAttemptedRef = useRef(false);
 
@@ -56,6 +57,7 @@ export function DashboardPage() {
         setIsJoining(true);
         try {
           const lobby = await lobbyApi.joinLobby(cleanCode);
+          queryClient.invalidateQueries({ queryKey: queryKeys.lobbies.user });
           showToast(`Successfully joined "${lobby.name || 'lobby'}"!`, 'success');
           navigate(`/lobby/${lobby.id}`, { replace: true });
         } catch (err) {
@@ -65,37 +67,7 @@ export function DashboardPage() {
         }
       })();
     }
-  }, [searchParams, navigate, showToast]);
-
-  const loadLobbies = useCallback(async () => {
-    setIsLoadingLobbies(true);
-    try {
-      const memberships = await authApi.getUserLobbies();
-      setLobbies(memberships.map((m) => m.lobby).filter(Boolean));
-    } catch (err) {
-      console.error(err);
-      showToast('Failed to load your lobbies', 'error');
-    } finally {
-      setIsLoadingLobbies(false);
-    }
-  }, [showToast]);
-
-  const loadSaved = useCallback(async () => {
-    setIsLoadingSaved(true);
-    try {
-      const saved = await restaurantApi.getSavedRestaurants();
-      setSavedRestaurants(saved);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoadingSaved(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadLobbies();
-    loadSaved();
-  }, [loadLobbies, loadSaved]);
+  }, [searchParams, navigate, showToast, queryClient]);
 
   const handleCreateLobby = async (e) => {
     e.preventDefault();
@@ -104,6 +76,7 @@ export function DashboardPage() {
     setIsCreating(true);
     try {
       const newLobby = await lobbyApi.createLobby(createName.trim());
+      queryClient.invalidateQueries({ queryKey: queryKeys.lobbies.user });
       showToast(`Lobby "${newLobby.name}" created!`, 'success');
       navigate(`/lobby/${newLobby.id}`);
     } catch (err) {
@@ -120,6 +93,7 @@ export function DashboardPage() {
     setIsJoining(true);
     try {
       const lobby = await lobbyApi.joinLobby(joinCode.trim().toUpperCase());
+      queryClient.invalidateQueries({ queryKey: queryKeys.lobbies.user });
       showToast(`Joined ${lobby.name || 'lobby'}!`, 'success');
       navigate(`/lobby/${lobby.id}`);
     } catch (err) {
@@ -145,7 +119,7 @@ export function DashboardPage() {
       try {
         await lobbyApi.updateLobbyStatus(lobby.id, 'closed');
         showToast(`Lobby closed.`, 'info');
-        loadLobbies();
+        queryClient.invalidateQueries({ queryKey: queryKeys.lobbies.user });
       } catch (err) {
         showToast(err.message || 'Failed to close lobby', 'error');
       }
@@ -161,7 +135,7 @@ export function DashboardPage() {
       try {
         await lobbyApi.deleteLobby(lobby.id);
         showToast(`Lobby deleted.`, 'info');
-        loadLobbies();
+        queryClient.invalidateQueries({ queryKey: queryKeys.lobbies.user });
       } catch (err) {
         showToast(err.message || 'Failed to delete lobby', 'error');
       }
@@ -177,7 +151,7 @@ export function DashboardPage() {
       try {
         await lobbyApi.leaveLobby(lobby.id, currentUser.id);
         showToast(`Left lobby.`, 'info');
-        loadLobbies();
+        queryClient.invalidateQueries({ queryKey: queryKeys.lobbies.user });
       } catch (err) {
         showToast(err.message || 'Failed to leave lobby', 'error');
       }
@@ -185,10 +159,13 @@ export function DashboardPage() {
   };
 
   const handleUnsave = async (restaurantId, placeId) => {
-    await restaurantApi.unsaveRestaurant(restaurantId);
-    removeSavedPlaceId(placeId);
-    setSavedRestaurants((prev) => prev.filter((r) => r.id !== restaurantId));
-    showToast('Removed from saved list', 'info');
+    try {
+      await unsaveMutation.mutateAsync(restaurantId);
+      removeSavedPlaceId(placeId);
+      showToast('Removed from saved list', 'info');
+    } catch (err) {
+      showToast(err.message || 'Failed to remove restaurant', 'error');
+    }
   };
 
   return (

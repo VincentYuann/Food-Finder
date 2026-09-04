@@ -7,7 +7,7 @@ import { Button } from '../common/Button';
 import { useAuth } from '../../hooks/useAuth';
 import { useModal } from '../../hooks/useModal';
 import { useToast } from '../../hooks/useToast';
-import { restaurantApi } from '../../api/restaurantApi';
+import { useSaveRestaurantMutation } from '../../hooks/useRestaurantsQuery';
 
 export function RestaurantCard({
   restaurant,
@@ -23,6 +23,7 @@ export function RestaurantCard({
   const location = useLocation();
   const [imageError, setImageError] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const saveMutation = useSaveRestaurantMutation();
 
   const isSaved = explicitSaved ?? (restaurant.saved || savedPlaceIds.has(restaurant.api_place_id));
 
@@ -38,7 +39,7 @@ export function RestaurantCard({
     addSavedPlaceId(restaurant.api_place_id);
 
     try {
-      await restaurantApi.saveRestaurant({
+      await saveMutation.mutateAsync({
         api_place_id: restaurant.api_place_id,
         name: restaurant.name,
         address: restaurant.address,

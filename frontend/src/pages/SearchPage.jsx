@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, Navigation, SlidersHorizontal, Utensils, X, CheckCircle2, Share2 } from 'lucide-react';
-import { restaurantApi } from '../api/restaurantApi';
 import { RestaurantCard } from '../components/restaurants/RestaurantCard';
 import { Button } from '../components/common/Button';
 import { LoadingSpinner } from '../components/common/LoadingSpinner';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useToast } from '../hooks/useToast';
+import { useRestaurantSearch } from '../hooks/useRestaurantsQuery';
 
 const CUISINES = [
   'All Cuisines',
@@ -31,42 +31,36 @@ const CUISINES = [
   'Vegetarian',
 ];
 
-function calculateDistanceMiles(lat1, lon1, lat2, lon2) {
-  if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
-  const R = 3958.8; // miles
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c * 10) / 10;
-}
-
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
   const { location, isLocating, locationError, requestLocation, clearLocation } = useGeolocation();
 
-  // Read initial filter values from URL query parameters
-  const initialQuery = searchParams.get('q') || '';
-  const initialCuisine = searchParams.get('cuisine') || 'All Cuisines';
-  const initialRadius = Number(searchParams.get('radius')) || 5;
+  // Read active filter values from URL query parameters
+  const activeQuery = searchParams.get('q') || '';
+  const activeCuisine = searchParams.get('cuisine') || 'All Cuisines';
+  const activeRadius = Number(searchParams.get('radius')) || 5;
 
-  // Form input state (only applied on Filter button click)
-  const [query, setQuery] = useState(initialQuery);
-  const [cuisine, setCuisine] = useState(initialCuisine);
-  const [radius, setRadius] = useState(initialRadius);
+  const latParam = searchParams.get('lat');
+  const lngParam = searchParams.get('lng');
+  const coordsFromUrl =
+    latParam && lngParam && !isNaN(Number(latParam)) && !isNaN(Number(lngParam))
+      ? { latitude: Number(latParam), longitude: Number(lngParam) }
+      : null;
 
-  const [results, setResults] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
+  const effectiveLocation = coordsFromUrl || location;
 
-  // Track the last searched URL search string to prevent duplicate searches
-  const lastSearchedParamsRef = useRef(null);
+  // Form input state (pending user edits before pressing Filter)
+  const [query, setQuery] = useState(activeQuery);
+  const [cuisine, setCuisine] = useState(activeCuisine);
+  const [radius, setRadius] = useState(activeRadius);
+
+  // Sync inputs when URL searchParams change (e.g. browser back/forward buttons)
+  useEffect(() => {
+    setQuery(activeQuery);
+    setCuisine(activeCuisine);
+    setRadius(activeRadius);
+  }, [activeQuery, activeCuisine, activeRadius]);
 
   useEffect(() => {
     if (locationError) {
@@ -74,88 +68,31 @@ export function SearchPage() {
     }
   }, [locationError, showToast]);
 
-  const executeSearch = useCallback(
-    async (q, c, r, coords) => {
-      setIsLoading(true);
-      setHasSearched(true);
+  // TanStack Query for Search Results with in-memory caching across navigation
+  const {
+    data: results = [],
+    isLoading,
+    isFetching,
+    error: searchError,
+  } = useRestaurantSearch({
+    query: activeQuery,
+    cuisine: activeCuisine,
+    radius: activeRadius,
+    latitude: effectiveLocation?.latitude,
+    longitude: effectiveLocation?.longitude,
+  });
 
-      const queryParts = [];
-      if (c && c !== 'All Cuisines') queryParts.push(c);
-      if (q && q.trim()) queryParts.push(q.trim());
+  useEffect(() => {
+    if (searchError) {
+      showToast(searchError.message || 'Search failed', 'error');
+    }
+  }, [searchError, showToast]);
 
-      let finalQuery = queryParts.join(' ');
-      if (c && c !== 'All Cuisines' && (!q || !q.trim())) {
-        if (!/restaurant|food|cafe|bakery|bbq|pizza|burger|sushi|ramen/i.test(c)) {
-          finalQuery = `${c} restaurant`;
-        }
-      }
-      if (!finalQuery.trim()) {
-        finalQuery = 'restaurant';
-      }
-
-      try {
-        let data = [];
-        const effectiveLocation = coords || location;
-        if (effectiveLocation) {
-          data = await restaurantApi.searchNearby({
-            latitude: effectiveLocation.latitude,
-            longitude: effectiveLocation.longitude,
-            radius: String(r || 5),
-            keyword: finalQuery,
-          });
-
-          // Calculate distance in miles from search coordinates & sort closest first
-          data = data.map((place) => ({
-            ...place,
-            distanceMiles: calculateDistanceMiles(
-              effectiveLocation.latitude,
-              effectiveLocation.longitude,
-              place.latitude,
-              place.longitude
-            ),
-          }));
-
-          data.sort((a, b) => (a.distanceMiles ?? 999) - (b.distanceMiles ?? 999));
-        } else {
-          data = await restaurantApi.searchText(finalQuery);
-        }
-        setResults(data);
-      } catch (err) {
-        console.error('Search error:', err);
-        showToast(err.message || 'Search failed', 'error');
-        setResults([]);
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [location, showToast]
+  const hasSearched = Boolean(
+    activeQuery || (activeCuisine && activeCuisine !== 'All Cuisines') || effectiveLocation
   );
 
-  // URL synchronization: runs on initial mount & when URL params change (back/forward navigation)
-  useEffect(() => {
-    const currentParamsString = searchParams.toString();
-    if (lastSearchedParamsRef.current === currentParamsString) return;
-    lastSearchedParamsRef.current = currentParamsString;
-
-    const q = searchParams.get('q') || '';
-    const c = searchParams.get('cuisine') || 'All Cuisines';
-    const r = Number(searchParams.get('radius')) || 5;
-
-    setQuery(q);
-    setCuisine(c);
-    setRadius(r);
-
-    let coords = null;
-    const lat = searchParams.get('lat');
-    const lng = searchParams.get('lng');
-    if (lat && lng && !isNaN(Number(lat)) && !isNaN(Number(lng))) {
-      coords = { latitude: Number(lat), longitude: Number(lng) };
-    }
-
-    executeSearch(q, c, r, coords);
-  }, [searchParams, executeSearch]);
-
-  // Trigger search ONLY on clicking Filter / pressing Enter
+  // Trigger search on clicking Filter / pressing Enter by updating URL params
   const handleApplyFilters = (e) => {
     e?.preventDefault();
 
@@ -168,13 +105,7 @@ export function SearchPage() {
       nextParams.lng = location.longitude.toFixed(6);
     }
 
-    const nextParamsString = new URLSearchParams(nextParams).toString();
-
-    if (lastSearchedParamsRef.current === nextParamsString) {
-      executeSearch(query, cuisine, radius, location);
-    } else {
-      setSearchParams(nextParams);
-    }
+    setSearchParams(nextParams);
   };
 
   const handleResetFilters = () => {
@@ -182,17 +113,13 @@ export function SearchPage() {
     setCuisine('All Cuisines');
     setRadius(5);
     clearLocation();
-
-    if (lastSearchedParamsRef.current === '') {
-      executeSearch('', 'All Cuisines', 5, null);
-    } else {
-      setSearchParams({});
-    }
+    setSearchParams({});
   };
 
   const handlePresetSelect = (presetRadius) => {
     setRadius(presetRadius);
   };
+
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">

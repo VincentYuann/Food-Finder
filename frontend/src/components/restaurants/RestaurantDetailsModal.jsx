@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Modal } from '../common/Modal';
 import { restaurantApi } from '../../api/restaurantApi';
 import { getImageUrl } from '../../api/client';
@@ -21,6 +21,7 @@ import {
 import { StatusBadge } from '../common/StatusBadge';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
+import { useRestaurantDetails, useSaveRestaurantMutation } from '../../hooks/useRestaurantsQuery';
 
 function checkIfOpen(openingHoursArray) {
   if (!openingHoursArray || !Array.isArray(openingHoursArray) || openingHoursArray.length === 0) return null;
@@ -81,37 +82,15 @@ function checkIfOpen(openingHoursArray) {
 }
 
 export function RestaurantDetailsModal({ placeId, onClose }) {
-  const [details, setDetails] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data: details, isLoading, error: queryError } = useRestaurantDetails(placeId);
+  const error = queryError ? (queryError.message || 'Failed to load details') : null;
   const [isHoursExpanded, setIsHoursExpanded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   const { savedPlaceIds, addSavedPlaceId } = useAuth();
   const { showToast } = useToast();
+  const saveMutation = useSaveRestaurantMutation();
 
-  const fetchDetails = useCallback(() => {
-    if (!placeId) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    restaurantApi
-      .getDetails(placeId)
-      .then((data) => {
-        setDetails(data);
-      })
-      .catch((err) => {
-        setError(err.message || 'Failed to load details');
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, [placeId]);
-
-  useEffect(() => {
-    fetchDetails();
-  }, [fetchDetails]);
 
   const priceDescriptors = {
     1: 'Inexpensive',
@@ -145,7 +124,7 @@ export function RestaurantDetailsModal({ placeId, onClose }) {
     addSavedPlaceId(details.api_place_id);
 
     try {
-      await restaurantApi.saveRestaurant({
+      await saveMutation.mutateAsync({
         api_place_id: details.api_place_id,
         name: details.name,
         address: details.address,
