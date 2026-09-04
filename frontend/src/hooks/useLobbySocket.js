@@ -21,74 +21,65 @@ export function useLobbySocket(lobbyId, {
   useEffect(() => {
     if (!lobbyId) return;
 
-    let socket;
-    let isCancelled = false;
-
     setConnectionStatus('connecting');
 
-    async function initSocket() {
-      // Ephemeral in-memory single-use handshake ticket obtained via HttpOnly cookie (no localStorage)
-      const ticket = await authApi.getSocketTicket();
-      if (isCancelled) return;
+    const socket = io(SOCKET_BASE_URL, {
+      withCredentials: true,
+      transports: ['websocket', 'polling'],
+      auth: (cb) => {
+        authApi
+          .getSocketTicket()
+          .then((ticket) => cb(ticket ? { ticket } : {}))
+          .catch(() => cb({}));
+      },
+    });
+    socketRef.current = socket;
 
-      socket = io(SOCKET_BASE_URL, {
-        withCredentials: true,
-        auth: ticket ? { ticket } : undefined,
-        transports: ['websocket', 'polling'],
+    socket.on('connect', () => {
+      socket.emit('lobby:join', lobbyId, (response) => {
+        if (!response?.ok) {
+          console.error('Could not join lobby room:', response?.error);
+          setConnectionStatus('offline');
+          return;
+        }
+        setConnectionStatus('online');
+        if (callbacksRef.current.onResync) {
+          callbacksRef.current.onResync();
+        }
       });
-      socketRef.current = socket;
+    });
 
-      socket.on('connect', () => {
-        socket.emit('lobby:join', lobbyId, (response) => {
-          if (!response?.ok) {
-            console.error('Could not join lobby room:', response?.error);
-            setConnectionStatus('offline');
-            return;
-          }
-          setConnectionStatus('online');
-          if (callbacksRef.current.onResync) {
-            callbacksRef.current.onResync();
-          }
-        });
-      });
+    socket.on('lobby:state', (state) => {
+      if (callbacksRef.current.onLobbyState) callbacksRef.current.onLobbyState(state);
+    });
 
-      socket.on('lobby:state', (state) => {
-        if (callbacksRef.current.onLobbyState) callbacksRef.current.onLobbyState(state);
-      });
+    socket.on('lobby:members', (members) => {
+      if (callbacksRef.current.onMembers) callbacksRef.current.onMembers(members);
+    });
 
-      socket.on('lobby:members', (members) => {
-        if (callbacksRef.current.onMembers) callbacksRef.current.onMembers(members);
-      });
+    socket.on('lobby:options', (options) => {
+      if (callbacksRef.current.onOptions) callbacksRef.current.onOptions(options);
+    });
 
-      socket.on('lobby:options', (options) => {
-        if (callbacksRef.current.onOptions) callbacksRef.current.onOptions(options);
-      });
+    socket.on('lobby:votes', (votes) => {
+      if (callbacksRef.current.onVotes) callbacksRef.current.onVotes(votes);
+    });
 
-      socket.on('lobby:votes', (votes) => {
-        if (callbacksRef.current.onVotes) callbacksRef.current.onVotes(votes);
-      });
+    socket.on('chat:message', (message) => {
+      if (callbacksRef.current.onChatMessage) callbacksRef.current.onChatMessage(message);
+    });
 
-      socket.on('chat:message', (message) => {
-        if (callbacksRef.current.onChatMessage) callbacksRef.current.onChatMessage(message);
-      });
+    socket.on('disconnect', () => {
+      setConnectionStatus('connecting');
+    });
 
-      socket.on('disconnect', () => {
-        setConnectionStatus('connecting');
-      });
-
-      socket.on('connect_error', (error) => {
-        console.warn('Socket connect error:', error.message);
-        setConnectionStatus('offline');
-      });
-    }
-
-    initSocket();
+    socket.on('connect_error', (error) => {
+      console.warn('Socket connect error:', error.message);
+      setConnectionStatus('offline');
+    });
 
     return () => {
-      isCancelled = true;
-      if (socket) {
-        socket.disconnect();
-      }
+      socket.disconnect();
       socketRef.current = null;
     };
   }, [lobbyId]);

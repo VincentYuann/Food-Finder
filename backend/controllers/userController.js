@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import prisma from '../config/dbConfig.js';
 import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '../config/jwtConfig.js';
 
 // ==========================================
 // AUTHENTICATION
@@ -96,7 +97,7 @@ export const loginUser = async (req, res) => {
         // This signs the user's ID into the token so your auth middleware can read it later
         const token = jwt.sign(
             { id: user.id },
-            process.env.JWT_SECRET,
+            JWT_SECRET,
             { expiresIn: '1d' }
         );
 
@@ -134,7 +135,7 @@ export const getSocketTicket = async (req, res) => {
     try {
         const ticket = jwt.sign(
             { id: req.user.id, type: 'socket_ticket' },
-            process.env.JWT_SECRET,
+            JWT_SECRET,
             { expiresIn: '30s' }
         );
         res.status(200).json({ ticket });
