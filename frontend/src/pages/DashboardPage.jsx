@@ -38,6 +38,18 @@ export function DashboardPage() {
   const [joinCode, setJoinCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
 
+  // Refs for empty-state CTAs
+  const createNameInputRef = useRef(null);
+  const welcomeBannerRef = useRef(null);
+
+  const focusCreateLobbyInput = () => {
+    createNameInputRef.current?.focus();
+  };
+
+  const scrollToFindFood = () => {
+    welcomeBannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   // TanStack Queries for Lobbies and Saved Restaurants
   const { data: lobbies = [], isLoading: isLoadingLobbies } = useUserLobbies();
   const { data: savedRestaurants = [], isLoading: isLoadingSaved } = useSavedRestaurants();
@@ -171,7 +183,10 @@ export function DashboardPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-br from-white via-white to-tomato-light/35 rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+      <div
+        ref={welcomeBannerRef}
+        className="bg-gradient-to-br from-white via-white to-tomato-light/35 rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-6"
+      >
         <div>
           <h1 className="text-2xl sm:text-3xl font-heading font-bold text-slate-900 tracking-tight">
             Welcome back, {currentUser?.username}!
@@ -189,7 +204,7 @@ export function DashboardPage() {
             icon={Utensils}
             className="shadow-sm hover:shadow-glow-tomato font-semibold"
           >
-            Find Restaurants
+            Find Food
           </Button>
         </div>
       </div>
@@ -210,6 +225,7 @@ export function DashboardPage() {
 
           <form onSubmit={handleCreateLobby} className="mt-5 flex gap-2">
             <input
+              ref={createNameInputRef}
               type="text"
               required
               value={createName}
@@ -276,6 +292,15 @@ export function DashboardPage() {
               <p className="text-xs text-slate-500 mt-1">
                 Create a lobby or join an existing one above to get started.
               </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={focusCreateLobbyInput}
+                icon={PlusCircle}
+                className="mt-4"
+              >
+                Start a Lobby
+              </Button>
             </div>
           ) : (
             <div className="space-y-3">
@@ -378,6 +403,15 @@ export function DashboardPage() {
               <p className="text-[11px] text-slate-400 mt-1">
                 Save spots while searching to quickly add them to future lobbies.
               </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={scrollToFindFood}
+                icon={Utensils}
+                className="mt-4"
+              >
+                Find Food
+              </Button>
             </div>
           ) : (
             <div className="space-y-2.5 max-h-[560px] overflow-y-auto pr-1">

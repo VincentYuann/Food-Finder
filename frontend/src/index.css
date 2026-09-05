@@ -24,7 +24,9 @@
     background-repeat: repeat;
     background-size: 480px 480px;
     background-position: center top;
-    opacity: 0.09;
+    opacity: 0.06;
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at center, transparent 15%, black 80%);
+    mask-image: radial-gradient(ellipse 70% 60% at center, transparent 15%, black 80%);
     pointer-events: none;
     z-index: 0;
   }
