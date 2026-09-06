@@ -73,22 +73,29 @@ const cacheRestaurantsBackground = async (restaurants) => {
 export const searchNearby = async (req, res) => {
     try {
         // radius is now passed in miles from frontend, convert to meters
-        const { latitude, longitude, radius = 5, keyword = 'restaurant' } = req.query;
+        const { latitude, longitude, radius = 5, keyword = 'restaurant', pageToken, rankPreference } = req.query;
 
         if (!latitude || !longitude) {
             return res.status(400).json({ error: 'latitude and longitude are required' });
         }
 
-        const radiusMeters = Math.floor(parseFloat(radius) * 1609.34);
+        const radiusNum = parseFloat(radius);
+        const radiusMeters = Math.floor(radiusNum * 1609.34);
+
+        // Prioritize DISTANCE if explicit rankPreference='DISTANCE' or if radius is <= 2 miles
+        // Otherwise, keep Google's relevance ranking across broader areas
+        const effectiveRankPreference = rankPreference || (radiusNum <= 2 ? 'DISTANCE' : null);
 
         const results = await searchNearbyRestaurants(
             parseFloat(latitude),
             parseFloat(longitude),
             radiusMeters,
-            keyword
+            keyword,
+            pageToken || null,
+            effectiveRankPreference
         );
 
-        cacheRestaurantsBackground(results); // fire and forget
+        cacheRestaurantsBackground(results.restaurants); // fire and forget
         res.json(results);
     } catch (error) {
         console.error('Error searching nearby restaurants:', error);
@@ -98,7 +105,7 @@ export const searchNearby = async (req, res) => {
 
 export const searchText = async (req, res) => {
     try {
-        const { query, latitude, longitude } = req.query;
+        const { query, latitude, longitude, pageToken } = req.query;
 
         if (!query) {
             return res.status(400).json({ error: 'query parameter is required' });
@@ -107,10 +114,11 @@ export const searchText = async (req, res) => {
         const results = await textSearchRestaurants(
             query,
             latitude ? parseFloat(latitude) : null,
-            longitude ? parseFloat(longitude) : null
+            longitude ? parseFloat(longitude) : null,
+            pageToken || null
         );
 
-        cacheRestaurantsBackground(results); // fire and forget
+        cacheRestaurantsBackground(results.restaurants); // fire and forget
         res.json(results);
     } catch (error) {
         console.error('Error searching restaurants:', error);

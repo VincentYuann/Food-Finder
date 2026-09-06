@@ -1,25 +1,42 @@
 import { apiClient } from './client';
 
 export const restaurantApi = {
-  async searchNearby({ latitude, longitude, radius, keyword }) {
+  async searchNearby({ latitude, longitude, radius, keyword, pageToken, rankPreference }) {
     const { data } = await apiClient.get('/api/restaurants/search/nearby', {
       params: {
         latitude,
         longitude,
         radius: radius || '5',
         keyword: keyword || 'restaurant',
+        ...(rankPreference ? { rankPreference } : {}),
+        ...(pageToken ? { pageToken } : {}),
       },
     });
-    return data;
+    if (Array.isArray(data)) {
+      return { restaurants: data, nextPageToken: null };
+    }
+    return {
+      restaurants: data.restaurants || [],
+      nextPageToken: data.nextPageToken || null,
+    };
   },
 
-  async searchText(query) {
+  async searchText(query, { latitude, longitude, pageToken } = {}) {
     const { data } = await apiClient.get('/api/restaurants/search/text', {
       params: {
         query: query || 'restaurant',
+        ...(latitude != null ? { latitude } : {}),
+        ...(longitude != null ? { longitude } : {}),
+        ...(pageToken ? { pageToken } : {}),
       },
     });
-    return data;
+    if (Array.isArray(data)) {
+      return { restaurants: data, nextPageToken: null };
+    }
+    return {
+      restaurants: data.restaurants || [],
+      nextPageToken: data.nextPageToken || null,
+    };
   },
 
   async getSavedRestaurants() {

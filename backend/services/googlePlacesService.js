@@ -23,45 +23,60 @@ function getPhotoUrl(photoName, maxWidth = 400) {
     return `/api/restaurants/photo/${encodeURIComponent(photoName)}?maxWidth=${maxWidth}`;
 }
 
+function mapGooglePlace(place) {
+    return {
+        api_place_id: place.id,
+        name: place.displayName?.text || 'Unknown',
+        address: place.formattedAddress,
+        latitude: place.location?.latitude,
+        longitude: place.location?.longitude,
+        rating: place.rating ?? null,
+        user_rating_count: place.userRatingCount ?? null,
+        price_level: place.priceLevel ? (place.priceLevel === 'PRICE_LEVEL_INEXPENSIVE' ? 1 : place.priceLevel === 'PRICE_LEVEL_MODERATE' ? 2 : place.priceLevel === 'PRICE_LEVEL_EXPENSIVE' ? 3 : place.priceLevel === 'PRICE_LEVEL_VERY_EXPENSIVE' ? 4 : null) : null,
+        photo_url: place.photos?.[0]?.name ? getPhotoUrl(place.photos[0].name) : null,
+        is_open: place.regularOpeningHours?.openNow ?? null,
+        primary_type: place.primaryTypeDisplayName?.text || place.types?.[0] || 'Restaurant'
+    };
+}
+
 /**
  * Search for restaurants near a location using Google Places API (New)
  * @param {number} latitude - Latitude of search center
  * @param {number} longitude - Longitude of search center
  * @param {number} radiusMeters - Search radius in meters
  * @param {string} keyword - Optional keyword filter (e.g., "sushi", "pizza")
- * @returns {Promise<Array>} - Array of restaurant results
+ * @param {string|null} pageToken - Optional page token for pagination
+ * @param {string|null} rankPreference - Optional ranking preference ('DISTANCE' or 'RELEVANCE')
+ * @returns {Promise<{restaurants: Array, nextPageToken: string|null}>} - Object with restaurant results and pagination token
  */
-export async function searchNearbyRestaurants(latitude, longitude, radiusMeters = 1500, keyword = 'restaurant') {
+export async function searchNearbyRestaurants(latitude, longitude, radiusMeters = 1500, keyword = 'restaurant', pageToken = null, rankPreference = null) {
     try {
-        const response = await placesClient.post('/places:searchText', {
+        const radiusMiles = radiusMeters / 1609.34;
+        const fieldMask = 'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.photos,places.primaryTypeDisplayName,places.types,places.userRatingCount,places.regularOpeningHours.openNow,nextPageToken';
+
+        const body = {
             textQuery: keyword,
-            locationBias: {
-                circle: {
-                    center: { latitude, longitude },
-                    radius: radiusMeters
-                }
-            }
-        }, {
-            headers: {
-                'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.photos,places.primaryTypeDisplayName,places.types,places.userRatingCount,places.regularOpeningHours.openNow'
-            }
+            pageSize: 20,
+            locationBias: { circle: { center: { latitude, longitude }, radius: radiusMeters } }
+        };
+
+        if (pageToken) {
+            body.pageToken = pageToken;
+        }
+
+        // For tight radiuses (<= 2 miles) or explicit DISTANCE preference, rank by proximity
+        if (rankPreference === 'DISTANCE' || radiusMiles <= 2) {
+            body.rankPreference = 'DISTANCE';
+        }
+
+        const response = await placesClient.post('/places:searchText', body, {
+            headers: { 'X-Goog-FieldMask': fieldMask }
         });
 
-        if (!response.data.places) return [];
-
-        return response.data.places.map(place => ({
-            api_place_id: place.id,
-            name: place.displayName?.text || 'Unknown',
-            address: place.formattedAddress,
-            latitude: place.location?.latitude,
-            longitude: place.location?.longitude,
-            rating: place.rating ?? null,
-            user_rating_count: place.userRatingCount ?? null,
-            price_level: place.priceLevel ? (place.priceLevel === 'PRICE_LEVEL_INEXPENSIVE' ? 1 : place.priceLevel === 'PRICE_LEVEL_MODERATE' ? 2 : place.priceLevel === 'PRICE_LEVEL_EXPENSIVE' ? 3 : place.priceLevel === 'PRICE_LEVEL_VERY_EXPENSIVE' ? 4 : null) : null,
-            photo_url: place.photos?.[0]?.name ? getPhotoUrl(place.photos[0].name) : null,
-            is_open: place.regularOpeningHours?.openNow ?? null,
-            primary_type: place.primaryTypeDisplayName?.text || place.types?.[0] || 'Restaurant'
-        }));
+        return {
+            restaurants: (response.data.places || []).map(mapGooglePlace),
+            nextPageToken: response.data.nextPageToken || null
+        };
     } catch (error) {
         console.error('Google Places search error:', error.message);
         throw error;
@@ -73,12 +88,14 @@ export async function searchNearbyRestaurants(latitude, longitude, radiusMeters 
  * @param {string} query - Search query (e.g., "sushi in San Francisco")
  * @param {number} latitude - Optional: latitude for location bias
  * @param {number} longitude - Optional: longitude for location bias
- * @returns {Promise<Array>} - Array of search results
+ * @param {string|null} pageToken - Optional page token for pagination
+ * @returns {Promise<{restaurants: Array, nextPageToken: string|null}>} - Object with restaurant results and pagination token
  */
-export async function textSearchRestaurants(query, latitude = null, longitude = null) {
+export async function textSearchRestaurants(query, latitude = null, longitude = null, pageToken = null) {
     try {
         const body = {
-            textQuery: query
+            textQuery: query,
+            pageSize: 20
         };
 
         if (latitude && longitude) {
@@ -91,27 +108,21 @@ export async function textSearchRestaurants(query, latitude = null, longitude = 
             };
         }
 
+        if (pageToken) {
+            body.pageToken = pageToken;
+        }
+
         const response = await placesClient.post('/places:searchText', body, {
             headers: {
-                'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.photos,places.primaryTypeDisplayName,places.types,places.userRatingCount,places.regularOpeningHours.openNow'
+                'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.photos,places.primaryTypeDisplayName,places.types,places.userRatingCount,places.regularOpeningHours.openNow,nextPageToken'
             }
         });
 
-        if (!response.data.places) return [];
-
-        return response.data.places.map(place => ({
-            api_place_id: place.id,
-            name: place.displayName?.text || 'Unknown',
-            address: place.formattedAddress,
-            latitude: place.location?.latitude,
-            longitude: place.location?.longitude,
-            rating: place.rating ?? null,
-            user_rating_count: place.userRatingCount ?? null,
-            price_level: place.priceLevel ? (place.priceLevel === 'PRICE_LEVEL_INEXPENSIVE' ? 1 : place.priceLevel === 'PRICE_LEVEL_MODERATE' ? 2 : place.priceLevel === 'PRICE_LEVEL_EXPENSIVE' ? 3 : place.priceLevel === 'PRICE_LEVEL_VERY_EXPENSIVE' ? 4 : null) : null,
-            photo_url: place.photos?.[0]?.name ? getPhotoUrl(place.photos[0].name) : null,
-            is_open: place.regularOpeningHours?.openNow ?? null,
-            primary_type: place.primaryTypeDisplayName?.text || place.types?.[0] || 'Restaurant'
-        }));
+        const places = response.data.places || [];
+        return {
+            restaurants: places.map(mapGooglePlace),
+            nextPageToken: response.data.nextPageToken || null
+        };
     } catch (error) {
         console.error('Google Places text search error:', error.message);
         throw error;

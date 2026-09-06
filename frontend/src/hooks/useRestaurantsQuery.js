@@ -17,7 +17,7 @@ export function calculateDistanceMiles(lat1, lon1, lat2, lon2) {
   return Math.round(R * c * 10) / 10;
 }
 
-export function buildSearchQuery(query, cuisine) {
+export function buildSearchQuery(query, cuisine, radius) {
   const queryParts = [];
   if (cuisine && cuisine !== 'All Cuisines') queryParts.push(cuisine);
   if (query && query.trim()) queryParts.push(query.trim());
@@ -29,7 +29,10 @@ export function buildSearchQuery(query, cuisine) {
     }
   }
   if (!finalQuery.trim()) {
-    finalQuery = 'restaurant';
+    // For wide radiuses (> 2 miles), "best restaurants" enables Google's regional prominence
+    // ranking across the full search circle, preventing tight clustering under 1.5 miles.
+    // For tight radiuses (<= 2 miles), "restaurants" pairs with DISTANCE ranking for doorstep spots.
+    finalQuery = (radius && Number(radius) > 2) ? 'best restaurants' : 'restaurants';
   }
   return finalQuery;
 }
@@ -39,7 +42,7 @@ export function buildSearchQuery(query, cuisine) {
  * Caches results in memory for fast back/forward navigation.
  */
 export function useRestaurantSearch({ query = '', cuisine = 'All Cuisines', radius = 5, latitude, longitude }, options = {}) {
-  const finalKeyword = buildSearchQuery(query, cuisine);
+  const finalKeyword = buildSearchQuery(query, cuisine, radius);
   const hasCoords = latitude != null && longitude != null;
 
   const searchParamsKey = {
@@ -52,25 +55,76 @@ export function useRestaurantSearch({ query = '', cuisine = 'All Cuisines', radi
   return useQuery({
     queryKey: queryKeys.restaurants.search(searchParamsKey),
     queryFn: async () => {
-      let data = [];
+      let items = [];
+      let nextPageToken = null;
+
       if (hasCoords) {
-        data = await restaurantApi.searchNearby({
-          latitude,
-          longitude,
-          radius: String(radius || 5),
-          keyword: finalKeyword,
-        });
+        const radiusNum = Number(radius || 5);
+        const rankPreference = radiusNum <= 2 ? 'DISTANCE' : undefined;
 
-        data = data.map((place) => ({
-          ...place,
-          distanceMiles: calculateDistanceMiles(latitude, longitude, place.latitude, place.longitude),
-        }));
+        let currentToken = null;
+        let pageCount = 0;
 
-        data.sort((a, b) => (a.distanceMiles ?? 999) - (b.distanceMiles ?? 999));
+        // Fetch up to 3 pages until we pool at least 36 valid items within radius
+        do {
+          const pageData = await restaurantApi.searchNearby({
+            latitude,
+            longitude,
+            radius: String(radiusNum),
+            keyword: finalKeyword,
+            rankPreference,
+            ...(currentToken ? { pageToken: currentToken } : {}),
+          });
+
+          const pageList = Array.isArray(pageData) ? pageData : (pageData.restaurants || []);
+          const existingIds = new Set(items.map((r) => r.api_place_id));
+
+          for (const place of pageList) {
+            if (place.api_place_id && !existingIds.has(place.api_place_id)) {
+              const distanceMiles = calculateDistanceMiles(latitude, longitude, place.latitude, place.longitude);
+              if (distanceMiles != null && distanceMiles <= radiusNum) {
+                items.push({
+                  ...place,
+                  relevanceIndex: items.length,
+                  distanceMiles,
+                });
+                existingIds.add(place.api_place_id);
+              }
+            }
+          }
+
+          currentToken = pageData.nextPageToken || null;
+          pageCount += 1;
+        } while (currentToken && items.length < 36 && pageCount < 3);
       } else {
-        data = await restaurantApi.searchText(finalKeyword);
+        let currentToken = null;
+        let pageCount = 0;
+
+        do {
+          const pageData = await restaurantApi.searchText(finalKeyword, {
+            ...(currentToken ? { pageToken: currentToken } : {}),
+          });
+
+          const pageList = Array.isArray(pageData) ? pageData : (pageData.restaurants || []);
+          const existingIds = new Set(items.map((r) => r.api_place_id));
+
+          for (const place of pageList) {
+            if (place.api_place_id && !existingIds.has(place.api_place_id)) {
+              items.push({
+                ...place,
+                relevanceIndex: items.length,
+                distanceMiles: null,
+              });
+              existingIds.add(place.api_place_id);
+            }
+          }
+
+          currentToken = pageData.nextPageToken || null;
+          pageCount += 1;
+        } while (currentToken && items.length < 36 && pageCount < 3);
       }
-      return data;
+
+      return items;
     },
     staleTime: 5 * 60 * 1000,  // 5 minutes
     gcTime: 30 * 60 * 1000,    // 30 minutes

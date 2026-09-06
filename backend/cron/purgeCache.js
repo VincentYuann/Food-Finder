@@ -33,11 +33,10 @@ async function purgeStaleCache() {
 
         console.log("Successfully purged stale restaurant records.");
     } catch (error) {
-        console.error('? Failed to purge cache:', error);
+        console.error('Failed to purge cache:', error);
     } finally {
         await prisma.$disconnect();
     }
 }
 
 purgeStaleCache();
-
