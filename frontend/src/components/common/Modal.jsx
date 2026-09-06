@@ -19,11 +19,13 @@ export function Modal({
     if (!isOpen) return;
 
     previouslyFocusedRef.current = document.activeElement;
+
+    // Prevent background scrolling while modal is open
+    const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        e.preventDefault();
         onClose();
         return;
       }
@@ -37,33 +39,27 @@ export function Modal({
         const first = focusables[0];
         const last = focusables[focusables.length - 1];
 
-        if (e.shiftKey) {
-          if (document.activeElement === first) {
-            e.preventDefault();
-            last.focus();
-          }
-        } else {
-          if (document.activeElement === last) {
-            e.preventDefault();
-            first.focus();
-          }
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
         }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
 
-    // Initial focus on first input if available, or container, avoiding jarring focus rings on close button
+    // Initial focus on first interactive element
     if (modalRef.current) {
-      const firstInput = modalRef.current.querySelector('input:not([disabled]), select:not([disabled]), textarea:not([disabled])');
-      if (firstInput) {
-        firstInput.focus();
-      }
+      const firstInteractive = modalRef.current.querySelector('button, [href], input');
+      if (firstInteractive) firstInteractive.focus();
     }
 
     return () => {
-      document.body.style.overflow = '';
       window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = originalOverflow;
       if (previouslyFocusedRef.current?.focus) {
         previouslyFocusedRef.current.focus();
       }

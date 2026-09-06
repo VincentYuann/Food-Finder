@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { authApi } from '../api/authApi';
 import { lobbyApi } from '../api/lobbyApi';
 import { queryKeys } from '../api/queryClient';
 
@@ -9,10 +8,7 @@ import { queryKeys } from '../api/queryClient';
 export function useUserLobbies(options = {}) {
   return useQuery({
     queryKey: queryKeys.lobbies.user,
-    queryFn: async () => {
-      const memberships = await authApi.getUserLobbies();
-      return memberships.map((m) => m.lobby).filter(Boolean);
-    },
+    queryFn: () => lobbyApi.getMyLobbies(),
     staleTime: 2 * 60 * 1000,  // 2 minutes
     gcTime: 15 * 60 * 1000,
     ...options,

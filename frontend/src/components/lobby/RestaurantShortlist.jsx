@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useModal } from '../../hooks/useModal';
 import { useToast } from '../../hooks/useToast';
 import { restaurantApi } from '../../api/restaurantApi';
+import { checkIfOpen } from '../../utils/openingHours';
 
 export function RestaurantShortlist({
   options = [],
@@ -205,9 +206,12 @@ export function RestaurantShortlist({
                           {'$'.repeat(r.price_level)}
                         </span>
                       )}
-                      {r.is_open !== null && r.is_open !== undefined && (
-                        <StatusBadge status={r.is_open} type="openStatus" />
-                      )}
+                      {(() => {
+                        const openStatus = (r.is_open !== null && r.is_open !== undefined) ? r.is_open : checkIfOpen(r.opening_hours);
+                        return openStatus !== null && openStatus !== undefined ? (
+                          <StatusBadge status={openStatus} type="openStatus" />
+                        ) : null;
+                      })()}
                     </div>
 
                     <p className="mt-2 text-xs text-slate-500 flex items-start gap-1 line-clamp-1">

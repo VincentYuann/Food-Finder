@@ -2,15 +2,7 @@ import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/jwtConfig.js';
 
 export const verifyJWT = (req, res, next) => {
-    let token = req.cookies?.token;
-
-    // Support Bearer token in Authorization header for cross-domain / third-party cookie blocked environments (Safari ITP, Incognito)
-    if (!token && req.headers?.authorization) {
-        const parts = req.headers.authorization.split(' ');
-        if (parts.length === 2 && parts[0].toLowerCase() === 'bearer') {
-            token = parts[1];
-        }
-    }
+    const token = req.cookies?.token;
 
     // If user doesn't send a token with them or if the token is modified by malicious user, then deny their access
     if (!token) {
@@ -29,7 +21,7 @@ export const verifyJWT = (req, res, next) => {
         }
 
         next();
-    } catch (err) {
+    } catch {
         return res.status(403).json({ message: 'Invalid or Expired Token!' });
     }
 };

@@ -27,6 +27,7 @@ router.patch('/:id/members/ready', isLobbyMember, lobbyController.setMemberReady
 // Restaurant options
 router.get('/:id/restaurants', isLobbyMember, lobbyController.getLobbyRestaurants);
 router.post('/:id/restaurants', isLobbyMember, lobbyController.addLobbyRestaurant);
+router.delete('/:id/restaurants/:restaurantId', isLobbyMember, lobbyController.removeLobbyRestaurant);
 
 // Votes
 router.get('/:id/votes', isLobbyMember, lobbyController.getLobbyVotes);
@@ -35,10 +36,5 @@ router.post('/:id/votes', isLobbyMember, lobbyController.castVote);
 // Messages
 router.get('/:id/messages', isLobbyMember, lobbyController.getLobbyMessages);
 router.post('/:id/messages', isLobbyMember, lobbyController.sendLobbyMessage);
-
-// Restaurant options
-router.get('/:id/restaurants', isLobbyMember, lobbyController.getLobbyRestaurants);
-router.post('/:id/restaurants', isLobbyMember, lobbyController.addLobbyRestaurant);
-router.delete('/:id/restaurants/:restaurantId', isLobbyMember, lobbyController.removeLobbyRestaurant);
 
 export default router;

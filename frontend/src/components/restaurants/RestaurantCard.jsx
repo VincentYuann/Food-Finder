@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useModal } from '../../hooks/useModal';
 import { useToast } from '../../hooks/useToast';
 import { useSaveRestaurantMutation } from '../../hooks/useRestaurantsQuery';
+import { checkIfOpen } from '../../utils/openingHours';
 
 export function RestaurantCard({
   restaurant,
@@ -16,7 +17,7 @@ export function RestaurantCard({
   onSaveSuccess,
   className = '',
 }) {
-  const { savedPlaceIds, addSavedPlaceId, isAuthenticated } = useAuth();
+  const { savedPlaceIds, addSavedPlaceId, removeSavedPlaceId, isAuthenticated } = useAuth();
   const { openDetailsModal } = useModal();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -26,6 +27,10 @@ export function RestaurantCard({
   const saveMutation = useSaveRestaurantMutation();
 
   const isSaved = explicitSaved ?? (restaurant.saved || savedPlaceIds.has(restaurant.api_place_id));
+  const isCurrentlyOpen =
+    restaurant.is_open !== null && restaurant.is_open !== undefined
+      ? restaurant.is_open
+      : checkIfOpen(restaurant.opening_hours);
 
   const handleSave = async () => {
     if (isSaved || isSaving) return;
@@ -36,8 +41,13 @@ export function RestaurantCard({
     }
 
     setIsSaving(true);
-    addSavedPlaceId(restaurant.api_place_id);
 
+    // 1. Optimistic UI update: instantly update saved status and display toast
+    addSavedPlaceId(restaurant.api_place_id);
+    showToast(`${restaurant.name} saved!`, 'success');
+    if (onSaveSuccess) onSaveSuccess(restaurant.api_place_id);
+
+    // 2. Perform background API call; rollback if failed
     try {
       await saveMutation.mutateAsync({
         api_place_id: restaurant.api_place_id,
@@ -51,11 +61,11 @@ export function RestaurantCard({
         primary_type: restaurant.primary_type,
         user_rating_count: restaurant.user_rating_count,
       });
-      showToast(`${restaurant.name} saved!`, 'success');
-      if (onSaveSuccess) onSaveSuccess(restaurant.api_place_id);
     } catch (err) {
-      console.error('Save error:', err);
-      // Keep optimistic saved state per requirements
+      console.error('Save error, rolling back:', err);
+      // Rollback optimistic state
+      removeSavedPlaceId(restaurant.api_place_id);
+      showToast(err.message || `Failed to save ${restaurant.name}. Reverted.`, 'error');
     } finally {
       setIsSaving(false);
     }
@@ -135,8 +145,8 @@ export function RestaurantCard({
                 {restaurant.primary_type.replace(/_/g, ' ')}
               </span>
             )}
-            {restaurant.is_open !== null && restaurant.is_open !== undefined && (
-              <StatusBadge status={restaurant.is_open} type="openStatus" />
+            {isCurrentlyOpen !== null && isCurrentlyOpen !== undefined && (
+              <StatusBadge status={isCurrentlyOpen} type="openStatus" />
             )}
           </div>
 

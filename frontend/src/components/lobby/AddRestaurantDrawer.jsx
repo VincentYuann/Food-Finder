@@ -31,7 +31,8 @@ export function AddRestaurantDrawer({ isOpen, onClose, lobbyId, onRestaurantAdde
     setIsSearching(true);
     try {
       const results = await restaurantApi.searchText(searchQuery.trim());
-      setSearchResults(results);
+      const list = Array.isArray(results) ? results : (results?.restaurants || []);
+      setSearchResults(list);
     } catch (err) {
       console.error(err);
       showToast('Search failed', 'error');

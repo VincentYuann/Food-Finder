@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import prisma from '../config/dbConfig.js';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/jwtConfig.js';
+import publicUserSelect from '../utils/publicUserSelect.js';
 
 // ==========================================
 // AUTHENTICATION
@@ -288,7 +289,13 @@ export const getUserLobbies = async (req, res) => {
         const memberships = await prisma.lobbyMember.findMany({
             where: { user_id: userId },
             include: {
-                lobby: true // Joins the lobby data so the client can display it
+                lobby: {
+                    include: {
+                        creator: { select: publicUserSelect },
+                        chosen_restaurant: true,
+                        _count: { select: { members: true } },
+                    }
+                }
             },
             orderBy: { joined_at: 'desc' }
         });

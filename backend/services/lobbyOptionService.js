@@ -5,39 +5,6 @@ import { getRestaurantDetails } from './googlePlacesService.js';
 import { emitLobbyOptions } from '../socket/emitter.js';
 
 /**
- * Re-pulls a restaurant whose cached columns were purged, so a shortlisted
- * option never renders as a nameless card. Returns the row untouched if the
- * refetch fails — a stale option is better than a broken list.
- */
-const rehydrate = async (restaurant) => {
-    try {
-        const details = await getRestaurantDetails(restaurant.api_place_id);
-        return await prisma.restaurant.update({
-            where: { id: restaurant.id },
-            data: {
-                name: details.name,
-                address: details.address,
-                latitude: details.latitude ? parseFloat(details.latitude) : null,
-                longitude: details.longitude ? parseFloat(details.longitude) : null,
-                rating: details.rating ? parseFloat(details.rating) : null,
-                price_level: details.price_level,
-                photo_url: details.photo_url,
-                primary_type: details.primary_type,
-                user_rating_count: details.user_rating_count,
-                phone_number: details.phone_number,
-                website_url: details.website_url,
-                google_maps_url: details.google_maps_url,
-                opening_hours: details.opening_hours,
-                cached_at: new Date()
-            }
-        });
-    } catch {
-        console.error('Failed to auto-refetch purged lobby option:', restaurant.api_place_id);
-        return restaurant;
-    }
-};
-
-/**
  * The shortlist for one lobby, each option carrying its restaurant and whoever
  * added it.
  *
@@ -54,9 +21,32 @@ export const listLobbyOptions = async (lobbyId) => {
     });
 
     return Promise.all(options.map(async (option) => {
-        // A null name means the cache purge got to it before we did.
-        if (!option.restaurant.name) {
-            option.restaurant = await rehydrate(option.restaurant);
+        // Graceful self-healing only if a legacy unpopulated/purged record exists
+        if (!option.restaurant.name && option.restaurant.api_place_id) {
+            try {
+                const fresh = await getRestaurantDetails(option.restaurant.api_place_id);
+                option.restaurant = await prisma.restaurant.update({
+                    where: { id: option.restaurant.id },
+                    data: {
+                        name: fresh.name,
+                        address: fresh.address,
+                        latitude: fresh.latitude ? parseFloat(fresh.latitude) : null,
+                        longitude: fresh.longitude ? parseFloat(fresh.longitude) : null,
+                        rating: fresh.rating ? parseFloat(fresh.rating) : null,
+                        price_level: fresh.price_level,
+                        photo_url: fresh.photo_url,
+                        primary_type: fresh.primary_type,
+                        user_rating_count: fresh.user_rating_count,
+                        phone_number: fresh.phone_number,
+                        website_url: fresh.website_url,
+                        google_maps_url: fresh.google_maps_url,
+                        opening_hours: fresh.opening_hours,
+                        cached_at: new Date()
+                    }
+                });
+            } catch (err) {
+                console.error('Failed to self-heal lobby option:', option.restaurant.api_place_id, err.message);
+            }
         }
         return option;
     }));

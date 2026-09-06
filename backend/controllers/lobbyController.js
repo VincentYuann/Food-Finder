@@ -2,7 +2,6 @@ import { getRestaurantDetails } from '../services/googlePlacesService.js';
 import { randomInt } from 'crypto';
 import prisma from '../config/dbConfig.js';
 import myCache from '../utils/cache.js';
-import { cachePhotoToS3 } from '../services/s3Service.js';
 import publicUserSelect from '../utils/publicUserSelect.js';
 import { createLobbyMessage, MessageValidationError } from '../services/lobbyChatService.js';
 import { listLobbyMembers, broadcastLobbyMembers } from '../services/lobbyMemberService.js';

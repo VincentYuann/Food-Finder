@@ -1,6 +1,7 @@
+import axios from 'axios';
 import prisma from '../config/dbConfig.js';
 import myCache from '../utils/cache.js';
-import { cachePhotoToS3, getPresignedUrl, isS3Usable } from '../services/s3Service.js';
+import { getPresignedUrl, cachePhotoToS3 } from '../services/s3Service.js';
 import {
     searchNearbyRestaurants,
     getRestaurantDetails,
@@ -16,24 +17,8 @@ const cacheRestaurantsBackground = async (restaurants) => {
     if (!restaurants || restaurants.length === 0) return;
 
     try {
-        const enrichedRestaurants = await Promise.all(restaurants.map(async (r) => {
-            let originalProxyUrl = r.photo_url;
-            let pUrl = originalProxyUrl;
-            if (pUrl && pUrl.includes('/api/restaurants/photo/')) {
-                const photoName = decodeURIComponent(pUrl.split('/api/restaurants/photo/')[1].split('?')[0]);
-                if (photoName.startsWith('s3:')) return r;
-                const googleUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=400&key=${process.env.GOOGLE_PLACES_API_KEY}`;
-                const s3Url = await cachePhotoToS3(googleUrl);
-                pUrl = (s3Url === googleUrl) ? originalProxyUrl : `/api/restaurants/photo/${encodeURIComponent(s3Url)}`;
-            } else if (pUrl && pUrl.includes('googleapis.com')) {
-                const s3Url = await cachePhotoToS3(pUrl);
-                pUrl = (s3Url === pUrl) ? originalProxyUrl : `/api/restaurants/photo/${encodeURIComponent(s3Url)}`;
-            }
-            return { ...r, photo_url: pUrl };
-        }));
-
         await prisma.$transaction(
-            enrichedRestaurants.map((restaurant) => prisma.restaurant.upsert({
+            restaurants.map((restaurant) => prisma.restaurant.upsert({
                 where: { api_place_id: restaurant.api_place_id },
                 update: { 
                     cached_at: new Date(),
@@ -46,7 +31,7 @@ const cacheRestaurantsBackground = async (restaurants) => {
                     price_level: restaurant.price_level,
                     primary_type: restaurant.primary_type,
                     user_rating_count: restaurant.user_rating_count
-                }, // bump the cache time and update new fields if it already exists
+                },
                 create: {
                     api_place_id: restaurant.api_place_id,
                     name: restaurant.name,
@@ -143,39 +128,37 @@ export const getSavedRestaurants = async (req, res) => {
         });
 
         const restaurants = await Promise.all(savedList.map(async (item) => {
-            let restaurant = item.restaurant;
-            
-            // Auto-refetch if the restaurant data was purged by the 30-day cron limit (name is null)
-            if (!restaurant.name) {
+            let rest = item.restaurant;
+            // Graceful self-healing only if a legacy unpopulated record exists
+            if (!rest.name && rest.api_place_id) {
                 try {
-                    const details = await getRestaurantDetails(restaurant.api_place_id);
-                    restaurant = await prisma.restaurant.update({
-                        where: { id: restaurant.id },
+                    const fresh = await getRestaurantDetails(rest.api_place_id);
+                    rest = await prisma.restaurant.update({
+                        where: { id: rest.id },
                         data: {
-                            name: details.name,
-                            address: details.address,
-                            latitude: details.latitude ? parseFloat(details.latitude) : null,
-                            longitude: details.longitude ? parseFloat(details.longitude) : null,
-                            rating: details.rating ? parseFloat(details.rating) : null,
-                            price_level: details.price_level,
-                            photo_url: details.photo_url,
-                            primary_type: details.primary_type,
-                            user_rating_count: details.user_rating_count,
-                            phone_number: details.phone_number,
-                            website_url: details.website_url,
-                            google_maps_url: details.google_maps_url,
-                            opening_hours: details.opening_hours,
+                            name: fresh.name,
+                            address: fresh.address,
+                            latitude: fresh.latitude ? parseFloat(fresh.latitude) : null,
+                            longitude: fresh.longitude ? parseFloat(fresh.longitude) : null,
+                            rating: fresh.rating ? parseFloat(fresh.rating) : null,
+                            price_level: fresh.price_level,
+                            photo_url: fresh.photo_url,
+                            primary_type: fresh.primary_type,
+                            user_rating_count: fresh.user_rating_count,
+                            phone_number: fresh.phone_number,
+                            website_url: fresh.website_url,
+                            google_maps_url: fresh.google_maps_url,
+                            opening_hours: fresh.opening_hours,
                             cached_at: new Date()
                         }
                     });
                 } catch (err) {
-                    console.error('Failed to auto-refetch purged restaurant:', restaurant.api_place_id);
+                    console.error('Failed to self-heal saved restaurant:', rest.api_place_id, err.message);
                 }
             }
-
             return {
                 saved_at: item.saved_at,
-                ...restaurant
+                ...rest
             };
         }));
 
@@ -217,14 +200,20 @@ export const saveRestaurant = async (req, res) => {
     }
 
     try {
-        // The restaurant may not be cached yet (or may have aged out), so make
-        // sure it exists before linking the user to it.
+        // Check if restaurant is already cached and whether it already has an S3 photo
+        const existing = await prisma.restaurant.findUnique({
+            where: { api_place_id }
+        });
+
+        let finalPhotoUrl = existing?.photo_url || photo_url;
+
         const restaurant = await prisma.restaurant.upsert({
             where: { api_place_id },
             update: { 
                 cached_at: new Date(),
                 primary_type: primary_type,
-                user_rating_count: user_rating_count
+                user_rating_count: user_rating_count,
+                photo_url: finalPhotoUrl
             },
             create: {
                 api_place_id,
@@ -234,7 +223,7 @@ export const saveRestaurant = async (req, res) => {
                 longitude: longitude ? parseFloat(longitude) : null,
                 rating: rating ? parseFloat(rating) : null,
                 price_level,
-                photo_url,
+                photo_url: finalPhotoUrl,
                 primary_type,
                 user_rating_count
             }
@@ -245,7 +234,38 @@ export const saveRestaurant = async (req, res) => {
         });
         myCache.del(`user_saved_restaurants_${req.user.id}`);
         myCache.del(`user_saved_place_ids_${req.user.id}`);
+
+        // Respond immediately for instant user feedback
         res.status(201).json({ message: 'Saved successfully', restaurant });
+
+        // Background: If not already in S3, asynchronously cache photo to S3 and update DB record
+        const isAlreadyS3 = finalPhotoUrl && (finalPhotoUrl.includes('s3%3A') || finalPhotoUrl.startsWith('s3:'));
+        if (!isAlreadyS3 && finalPhotoUrl && process.env.S3_BUCKET) {
+            (async () => {
+                let photoName = null;
+                if (finalPhotoUrl.includes('/api/restaurants/photo/')) {
+                    photoName = decodeURIComponent(finalPhotoUrl.split('/api/restaurants/photo/')[1].split('?')[0]);
+                } else if (finalPhotoUrl.startsWith('places/')) {
+                    photoName = finalPhotoUrl;
+                }
+
+                if (photoName && !photoName.startsWith('s3:') && process.env.GOOGLE_PLACES_API_KEY) {
+                    try {
+                        const googleMediaUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=400&key=${process.env.GOOGLE_PLACES_API_KEY}`;
+                        const s3Key = await cachePhotoToS3(googleMediaUrl);
+                        if (s3Key && s3Key.startsWith('s3:')) {
+                            const s3PhotoUrl = `/api/restaurants/photo/${encodeURIComponent(s3Key)}`;
+                            await prisma.restaurant.update({
+                                where: { id: restaurant.id },
+                                data: { photo_url: s3PhotoUrl }
+                            });
+                        }
+                    } catch (s3Err) {
+                        console.warn('Could not cache saved restaurant photo to S3, using proxy URL:', s3Err.message);
+                    }
+                }
+            })().catch(err => console.error('Background S3 caching failed:', err));
+        }
     } catch (error) {
         // P2002 = unique constraint violation, i.e. they already saved this one.
         if (error.code === 'P2002') {
@@ -389,80 +409,33 @@ export const getRestaurantById = async (req, res) => {
     }
 };
 
-export const removeLobbyRestaurant = async (req, res) => {
-    const restaurantId = parseInt(req.params.restaurantId, 10);
-    if (Number.isNaN(restaurantId)) {
-        return res.status(400).json({ error: 'A valid restaurantId is required.' });
-    }
-
-    try {
-        await prisma.lobbyRestaurantOption.delete({
-            where: {
-                lobby_id_restaurant_id: { lobby_id: req.lobbyId, restaurant_id: restaurantId }
-            }
-        });
-        res.status(204).send();
-    } catch (error) {
-        if (error.code === 'P2025') {
-            return res.status(404).json({ error: 'That restaurant is not in this lobby.' });
-        }
-        console.error('Error removing lobby restaurant:', error);
-        res.status(500).json({ error: 'Internal server error.' });
-    }
-};
-
-
 /**
  * Streams (or redirects to) a Google Places photo by its photo name.
  *
  * Google hands back a 302 to a short-lived CDN URL for most photos; passing
- * that redirect through means the bytes never touch this server. Older photos
- * come back inline, so both shapes are handled.
+ * that redirect through means the bytes never touch this server.
  */
 const serveGooglePhoto = async (res, photoName, maxWidth, cacheKey) => {
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     const googleUrl = `https://places.googleapis.com/v1/${photoName}/media?maxWidthPx=${maxWidth}&key=${apiKey}`;
 
-    const axios = (await import('axios')).default;
     const response = await axios.get(googleUrl, {
         maxRedirects: 0,
-        responseType: 'arraybuffer',
-        validateStatus: status => status >= 200 && status < 400
+        validateStatus: (status) => status >= 200 && status < 400
     });
+
+    res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
 
     if (response.status === 302 && response.headers.location) {
         const redirectUrl = response.headers.location;
-        if (cacheKey) myCache.set(cacheKey, redirectUrl);
-        return res.redirect(redirectUrl);
+        if (cacheKey) myCache.set(cacheKey, redirectUrl, 86400);
+        return res.redirect(307, redirectUrl);
     }
 
-    res.set('Content-Type', response.headers['content-type']);
-    return res.send(response.data);
-};
-
-/**
- * The Google photo name for whichever restaurant owns this cached S3 object.
- *
- * Caching a photo overwrites photo_url with the S3 key, which throws away the
- * Google photo name that produced it — so when S3 can't serve the object there
- * is nothing left to fall back to except the place id. The row is found by the
- * key's UUID rather than the whole path, because photo_url stores it
- * URL-encoded and the UUID is unique on its own.
- */
-const googlePhotoNameForS3Key = async (s3Key) => {
-    const uuid = s3Key.split('/').pop().replace(/\.[^.]+$/, '');
-    if (!uuid) return null;
-
-    const restaurant = await prisma.restaurant.findFirst({
-        where: { photo_url: { contains: uuid } },
-        select: { api_place_id: true }
-    });
-    if (!restaurant) return null;
-
-    const details = await getRestaurantDetails(restaurant.api_place_id);
-    // getPhotoUrl() formats this as '/api/restaurants/photo/<encoded>?maxWidth='
-    const encoded = details?.photo_url?.split('/api/restaurants/photo/')[1];
-    return encoded ? decodeURIComponent(encoded.split('?')[0]) : null;
+    // Direct image binary response (stream through to client)
+    const imgResponse = await axios.get(googleUrl, { responseType: 'stream' });
+    res.set('Content-Type', imgResponse.headers['content-type'] || 'image/jpeg');
+    return imgResponse.data.pipe(res);
 };
 
 export const proxyPhoto = async (req, res) => {
@@ -472,48 +445,20 @@ export const proxyPhoto = async (req, res) => {
 
     try {
         if (myCache.has(cacheKey)) {
-            return res.redirect(myCache.get(cacheKey));
+            res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+            return res.redirect(307, myCache.get(cacheKey));
         }
 
+        // Backwards compatibility for any legacy S3-prefixed photos
         if (photoName.startsWith('s3:')) {
             const s3Key = photoName.replace('s3:', '');
-
-            // Only redirect to S3 if the bucket is actually honouring our
-            // signatures. A presigned URL is signed locally, so it looks
-            // perfectly valid even when the credentials are stale - the
-            // browser would just receive a 403 and render a broken image.
-            if (await isS3Usable(s3Key)) {
-                const presignedUrl = await getPresignedUrl(s3Key);
-                if (presignedUrl) {
-                    // Expires just inside the URL's own 2h lifetime.
-                    myCache.set(cacheKey, presignedUrl, 7000);
-                    return res.redirect(presignedUrl);
-                }
+            const presignedUrl = await getPresignedUrl(s3Key);
+            if (presignedUrl) {
+                myCache.set(cacheKey, presignedUrl, 7000);
+                res.setHeader('Cache-Control', 'public, max-age=7000');
+                return res.redirect(307, presignedUrl);
             }
-
-            // S3 is unreachable, so go back to the original source. The
-            // resolution costs a Places lookup, hence caching the photo name
-            // rather than repeating it for every card on the page.
-            const nameKey = `s3_fallback_${s3Key}`;
-            let fallbackName = myCache.get(nameKey);
-
-            if (fallbackName === undefined) {
-                fallbackName = await googlePhotoNameForS3Key(s3Key);
-                // Held for a day rather than the cache's default hour: resolving
-                // one of these costs a billable Places Details call, and a photo
-                // name barely ever changes. Caching the misses too (as null)
-                // stops a restaurant with no photo re-querying on every render.
-                myCache.set(nameKey, fallbackName, 86400);
-            }
-
-            if (fallbackName) {
-                // Deliberately not written back to photo_url: leaving the S3
-                // key in place means these photos start serving from the cache
-                // again the moment the credentials are fixed, with no backfill.
-                return serveGooglePhoto(res, fallbackName, maxWidth, null);
-            }
-
-            return res.status(404).send('S3 photo not found');
+            return res.status(404).send('Photo not found');
         }
 
         return serveGooglePhoto(res, photoName, maxWidth, cacheKey);

@@ -1,6 +1,11 @@
 import { apiClient } from './client';
 
 export const lobbyApi = {
+  async getMyLobbies() {
+    const { data } = await apiClient.get('/api/lobbies');
+    return data;
+  },
+
   async createLobby(name) {
     const { data } = await apiClient.post('/api/lobbies', { name });
     return data;

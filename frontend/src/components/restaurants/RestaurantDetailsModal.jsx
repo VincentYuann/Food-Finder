@@ -22,75 +22,17 @@ import { StatusBadge } from '../common/StatusBadge';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
 import { useRestaurantDetails, useSaveRestaurantMutation } from '../../hooks/useRestaurantsQuery';
-
-function checkIfOpen(openingHoursArray) {
-  if (!openingHoursArray || !Array.isArray(openingHoursArray) || openingHoursArray.length === 0) return null;
-
-  const now = new Date();
-  const dayName = now.toLocaleDateString('en-US', { weekday: 'long' });
-  const todayStr = openingHoursArray.find((str) => str.startsWith(dayName));
-
-  if (!todayStr) return null;
-
-  const hoursPart = todayStr.substring(todayStr.indexOf(':') + 1).trim();
-  if (hoursPart === 'Closed') return false;
-  if (hoursPart === 'Open 24 hours') return true;
-
-  const ranges = hoursPart.split(',').map((s) => s.trim());
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-  for (const range of ranges) {
-    const parts = range.split(/[\u2013\-]/).map((s) => s.trim());
-    if (parts.length !== 2) continue;
-
-    const parseTime = (timeStr) => {
-      const match = timeStr.match(/(\d+)(?::(\d+))?\s*(AM|PM)/i);
-      if (!match) return -1;
-      let hours = parseInt(match[1], 10);
-      const mins = match[2] ? parseInt(match[2], 10) : 0;
-      const isPM = match[3].toUpperCase() === 'PM';
-      if (hours === 12 && !isPM) hours = 0;
-      else if (hours < 12 && isPM) hours += 12;
-      return hours * 60 + mins;
-    };
-
-    let startMins = parseTime(parts[0]);
-    let endMins = parseTime(parts[1]);
-
-    if (startMins !== -1 && endMins !== -1 && !parts[0].toLowerCase().includes('m') && parts[1].toLowerCase().includes('m')) {
-      const isEndPM = parts[1].toLowerCase().includes('pm');
-      if (isEndPM && startMins < 12 * 60 && startMins + 12 * 60 < endMins) {
-        startMins += 12 * 60;
-      }
-    }
-
-    if (startMins !== -1 && endMins !== -1) {
-      if (endMins < startMins) {
-        // Range crosses midnight (e.g. 11:30 AM to 2:00 AM)
-        if (currentMinutes >= startMins || currentMinutes <= endMins) {
-          return true;
-        }
-      } else {
-        if (currentMinutes >= startMins && currentMinutes <= endMins) {
-          return true;
-        }
-      }
-    }
-  }
-
-  return false;
-}
+import { getOperatingStatus } from '../../utils/openingHours';
 
 export function RestaurantDetailsModal({ placeId, onClose }) {
-  const { data: details, isLoading, error: queryError } = useRestaurantDetails(placeId);
+  const { data: details, isLoading, error: queryError, refetch } = useRestaurantDetails(placeId);
   const error = queryError ? (queryError.message || 'Failed to load details') : null;
   const [isHoursExpanded, setIsHoursExpanded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { savedPlaceIds, addSavedPlaceId } = useAuth();
+  const { savedPlaceIds, addSavedPlaceId, removeSavedPlaceId, isAuthenticated } = useAuth();
   const { showToast } = useToast();
   const saveMutation = useSaveRestaurantMutation();
-
 
   const priceDescriptors = {
     1: 'Inexpensive',
@@ -99,16 +41,15 @@ export function RestaurantDetailsModal({ placeId, onClose }) {
     4: 'Very Expensive',
   };
 
+  const operatingStatus = getOperatingStatus(details?.opening_hours);
+
+  // If live is_open is present, use it; otherwise compute dynamically from cached weekly schedule
   const isCurrentlyOpen =
     details?.is_open !== null && details?.is_open !== undefined
       ? details.is_open
-      : checkIfOpen(details?.opening_hours);
+      : operatingStatus.isOpen;
 
-  const todayDayName = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-  const todayEntry = details?.opening_hours?.find((str) => str.startsWith(todayDayName));
-  const todayHoursStr = todayEntry
-    ? todayEntry.substring(todayEntry.indexOf(':') + 1).trim()
-    : null;
+  const { todayDayName, todayHoursStr, isOvernightFromYesterday } = operatingStatus;
 
   const isSaved = details && savedPlaceIds.has(details.api_place_id);
 
@@ -120,9 +61,18 @@ export function RestaurantDetailsModal({ placeId, onClose }) {
       return;
     }
 
-    setIsSaving(true);
-    addSavedPlaceId(details.api_place_id);
+    if (!isAuthenticated) {
+      showToast('Please sign in to save restaurants', 'info');
+      return;
+    }
 
+    setIsSaving(true);
+
+    // 1. Optimistic UI update: instantly update saved status and display toast
+    addSavedPlaceId(details.api_place_id);
+    showToast(`${details.name} saved to favorites!`, 'success');
+
+    // 2. Perform background API call; rollback if failed
     try {
       await saveMutation.mutateAsync({
         api_place_id: details.api_place_id,
@@ -136,10 +86,11 @@ export function RestaurantDetailsModal({ placeId, onClose }) {
         primary_type: details.primary_type,
         user_rating_count: details.user_rating_count,
       });
-      showToast(`${details.name} saved to favorites!`, 'success');
     } catch (err) {
-      console.error('Failed to save restaurant:', err);
-      showToast(err.message || 'Failed to save restaurant', 'error');
+      console.error('Failed to save restaurant, rolling back:', err);
+      // Rollback optimistic state
+      removeSavedPlaceId(details.api_place_id);
+      showToast(err.message || 'Failed to save restaurant. Reverted.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -168,7 +119,7 @@ export function RestaurantDetailsModal({ placeId, onClose }) {
           <p className="text-xs text-slate-500 max-w-xs">{error || 'Please check your connection and try again.'}</p>
           <button
             type="button"
-            onClick={fetchDetails}
+            onClick={() => refetch()}
             className="mt-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-colors"
           >
             Try Again
@@ -327,22 +278,53 @@ export function RestaurantDetailsModal({ placeId, onClose }) {
                   </button>
                 </div>
 
-                {/* Today's single row summary */}
-                <div className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-tomato-light/40 border border-tomato/15">
-                  <div className="flex items-center gap-2">
-                    <span className="font-heading font-bold text-slate-900">{todayDayName}</span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-heading font-bold uppercase bg-tomato text-white">
-                      Today
-                    </span>
+                {/* Overnight Active Shift vs Calendar Today */}
+                {isOvernightFromYesterday ? (
+                  <div className="space-y-1.5">
+                    {/* Active shift row */}
+                    <div className="flex items-center justify-between text-xs py-2 px-3 rounded-xl bg-emerald-50 border border-emerald-200/80 shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="font-heading font-bold text-emerald-950">
+                          {operatingStatus.activeShiftName} Night Shift
+                        </span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-heading font-bold uppercase bg-emerald-600 text-white tracking-wide">
+                          Open Now
+                        </span>
+                      </div>
+                      <span className="font-bold text-emerald-800">
+                        {operatingStatus.activeShiftSummary}
+                      </span>
+                    </div>
+
+                    {/* Today schedule */}
+                    <div className="flex items-center justify-between text-xs py-1.5 px-3 rounded-xl bg-slate-50 border border-slate-200/60 text-slate-600">
+                      <div className="flex items-center gap-2">
+                        <span className="font-heading font-medium text-slate-700">{todayDayName}</span>
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-heading font-semibold uppercase bg-slate-200 text-slate-700">
+                          Later Today
+                        </span>
+                      </div>
+                      <span className="font-semibold text-slate-700">{todayHoursStr || 'Hours not listed'}</span>
+                    </div>
                   </div>
-                  <span className="font-semibold text-slate-800">{todayHoursStr || 'Hours not listed'}</span>
-                </div>
+                ) : (
+                  <div className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-tomato-light/40 border border-tomato/15">
+                    <div className="flex items-center gap-2">
+                      <span className="font-heading font-bold text-slate-900">{todayDayName}</span>
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-heading font-bold uppercase bg-tomato text-white">
+                        Today
+                      </span>
+                    </div>
+                    <span className="font-semibold text-slate-800">{todayHoursStr || 'Hours not listed'}</span>
+                  </div>
+                )}
 
                 {/* Expandable 7-day schedule */}
                 {isHoursExpanded && (
                   <ul id="weekly-hours-list" className="divide-y divide-slate-100 pt-2 border-t border-slate-100 text-xs text-slate-600 space-y-1">
                     {details.opening_hours.map((dayStr, idx) => {
                       const isToday = dayStr.startsWith(todayDayName);
+                      const isActiveShift = isOvernightFromYesterday && dayStr.startsWith(operatingStatus.activeShiftName);
                       const colonIdx = dayStr.indexOf(':');
                       const day = colonIdx !== -1 ? dayStr.substring(0, colonIdx) : dayStr;
                       const time = colonIdx !== -1 ? dayStr.substring(colonIdx + 1).trim() : '';
@@ -350,12 +332,30 @@ export function RestaurantDetailsModal({ placeId, onClose }) {
                       return (
                         <li
                           key={idx}
-                          className={`flex items-center justify-between py-1.5 px-2 rounded ${
-                            isToday ? 'bg-slate-50 font-semibold text-slate-900' : ''
+                          className={`flex items-center justify-between py-1.5 px-2.5 rounded-lg transition-colors ${
+                            isActiveShift
+                              ? 'bg-emerald-50/80 font-bold text-emerald-950 border border-emerald-200/50'
+                              : isToday
+                              ? 'bg-slate-100/80 font-semibold text-slate-900'
+                              : ''
                           }`}
                         >
-                          <span>{day}</span>
-                          <span className="text-slate-600 font-medium">{time}</span>
+                          <div className="flex items-center gap-2">
+                            <span>{day}</span>
+                            {isActiveShift && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-600 text-white uppercase tracking-tight">
+                                Active Shift
+                              </span>
+                            )}
+                            {isToday && !isActiveShift && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 uppercase tracking-tight">
+                                Today
+                              </span>
+                            )}
+                          </div>
+                          <span className={isActiveShift ? 'text-emerald-800 font-bold' : 'text-slate-600 font-medium'}>
+                            {time}
+                          </span>
                         </li>
                       );
                     })}
